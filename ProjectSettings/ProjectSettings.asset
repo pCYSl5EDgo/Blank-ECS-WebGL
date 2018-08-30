@@ -570,6 +570,7 @@ PlayerSettings:
   webGLLinkerTarget: 1
   scriptingDefineSymbols:
     1: UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP
+    13: UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP
   platformArchitecture: {}
   scriptingBackend: {}
   il2cppCompilerConfiguration: {}

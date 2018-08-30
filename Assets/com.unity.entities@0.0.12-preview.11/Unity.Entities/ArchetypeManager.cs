@@ -848,7 +848,7 @@ namespace Unity.Entities
 
             var samplerShared = CustomSampler.Create("MoveAllSharedComponents");
             samplerShared.Begin();
-            var remapShared = dstSharedComponents.MoveAllSharedComponents(srcSharedComponents, Allocator.TempJob);
+            var remapShared = dstSharedComponents.MoveAllSharedComponents(srcSharedComponents, Allocator.Temp);
             samplerShared.End();
 
             Archetype* srcArchetype;
@@ -863,8 +863,8 @@ namespace Unity.Entities
                 srcArchetype = srcArchetype->PrevArchetype;
             }
 
-            var remapChunks = new NativeArray<RemapChunk>(chunkCount, Allocator.TempJob);
-            var remapArchetypes = new NativeArray<RemapArchetype>(archetypeCount, Allocator.TempJob);
+            var remapChunks = new NativeArray<RemapChunk>(chunkCount, Allocator.Temp);
+            var remapArchetypes = new NativeArray<RemapArchetype>(archetypeCount, Allocator.Temp);
 
             int chunkIndex = 0;
             int archetypeIndex = 0;

@@ -5,8 +5,6 @@
 -out:"C:/Users/I/Saved Games/Blank ECS/Temp/Unity.Entities.Editor.dll"
 -nostdlib
 -unsafe
--r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Entities.dll"
--r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Entities.Hybrid.dll"
 -r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Entities.Properties.dll"
 -r:"C:\Program Files\Unity\Hub\Editor\2018.2.6f1\Editor\Data\Managed/UnityEngine/UnityEngine.dll"
 -r:"C:\Program Files\Unity\Hub\Editor\2018.2.6f1\Editor\Data\Managed/UnityEngine/UnityEngine.AIModule.dll"
@@ -67,10 +65,13 @@
 -r:"C:\Program Files\Unity\Hub\Editor\2018.2.6f1\Editor\Data\Managed/UnityEngine/UnityEngine.VRModule.dll"
 -r:"C:\Program Files\Unity\Hub\Editor\2018.2.6f1\Editor\Data\Managed/UnityEngine/UnityEngine.VehiclesModule.dll"
 -r:"C:\Program Files\Unity\Hub\Editor\2018.2.6f1\Editor\Data\Managed/UnityEngine/UnityEngine.VideoModule.dll"
+-r:"C:\Program Files\Unity\Hub\Editor\2018.2.6f1\Editor\Data\PlaybackEngines\WebGLSupport/Managed/UnityEngine.WebGLModule.dll"
 -r:"C:\Program Files\Unity\Hub\Editor\2018.2.6f1\Editor\Data\Managed/UnityEngine/UnityEngine.WindModule.dll"
 -r:"C:\Program Files\Unity\Hub\Editor\2018.2.6f1\Editor\Data\Managed/UnityEngine/UnityEngine.XRModule.dll"
 -r:"C:\Program Files\Unity\Hub\Editor\2018.2.6f1\Editor\Data\Managed/UnityEditor.dll"
 -r:"C:\Program Files\Unity\Hub\Editor\2018.2.6f1\Editor\Data\Managed/Unity.Locator.dll"
+-r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Entities.dll"
+-r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Entities.Hybrid.dll"
 -r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Mathematics.dll"
 -r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Properties.dll"
 -r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Collections.dll"
@@ -226,13 +227,9 @@
 -d:UNITY_2018_2_6
 -d:UNITY_2018_2
 -d:UNITY_2018
--d:PLATFORM_ARCH_64
--d:UNITY_64
 -d:ENABLE_AUDIO
 -d:ENABLE_CACHING
 -d:ENABLE_CLOTH
--d:ENABLE_DUCK_TYPING
--d:ENABLE_MICROPHONE
 -d:ENABLE_MULTIPLE_DISPLAYS
 -d:ENABLE_PHYSICS
 -d:ENABLE_SPRITES
@@ -242,13 +239,11 @@
 -d:ENABLE_TEXTURE_STREAMING
 -d:ENABLE_DIRECTOR
 -d:ENABLE_UNET
--d:ENABLE_LZMA
 -d:ENABLE_UNITYEVENTS
 -d:ENABLE_WEBCAM
 -d:ENABLE_WWW
 -d:ENABLE_CLOUD_SERVICES_COLLAB
 -d:ENABLE_CLOUD_SERVICES_COLLAB_SOFTLOCKS
--d:ENABLE_CLOUD_SERVICES_ADS
 -d:ENABLE_CLOUD_HUB
 -d:ENABLE_CLOUD_PROJECT_ID
 -d:ENABLE_CLOUD_SERVICES_USE_WEBREQUEST
@@ -269,36 +264,28 @@
 -d:INCLUDE_DYNAMIC_GI
 -d:INCLUDE_GI
 -d:ENABLE_MONO_BDWGC
--d:PLATFORM_SUPPORTS_MONO
 -d:RENDER_SOFTWARE_CURSOR
 -d:INCLUDE_PUBNUB
 -d:ENABLE_VIDEO
 -d:ENABLE_PACKMAN
 -d:ENABLE_CUSTOM_RENDER_TEXTURE
 -d:ENABLE_LOCALIZATION
--d:PLATFORM_STANDALONE_WIN
--d:PLATFORM_STANDALONE
--d:UNITY_STANDALONE_WIN
--d:UNITY_STANDALONE
--d:ENABLE_SUBSTANCE
--d:ENABLE_RUNTIME_GI
--d:ENABLE_MOVIES
--d:ENABLE_NETWORK
+-d:PLATFORM_WEBGL
+-d:UNITY_WEBGL
+-d:UNITY_WEBGL_API
+-d:UNITY_DISABLE_WEB_VERIFICATION
+-d:UNITY_GFX_USE_PLATFORM_VSYNC
 -d:ENABLE_CRUNCH_TEXTURE_COMPRESSION
 -d:ENABLE_UNITYWEBREQUEST
 -d:ENABLE_CLOUD_SERVICES
+-d:ENABLE_CLOUD_SERVICES_ADS
 -d:ENABLE_CLOUD_SERVICES_ANALYTICS
 -d:ENABLE_CLOUD_SERVICES_PURCHASING
 -d:ENABLE_CLOUD_SERVICES_CRASH_REPORTING
--d:ENABLE_OUT_OF_PROCESS_CRASH_HANDLER
--d:ENABLE_EVENT_QUEUE
--d:ENABLE_CLUSTER_SYNC
--d:ENABLE_CLUSTERINPUT
 -d:ENABLE_VR
--d:ENABLE_AR
--d:ENABLE_WEBSOCKET_HOST
--d:ENABLE_MONO
--d:NET_STANDARD_2_0
+-d:ENABLE_SPATIALTRACKING
+-d:ENABLE_IL2CPP
+-d:NET_4_6
 -d:ENABLE_PROFILER
 -d:DEBUG
 -d:TRACE

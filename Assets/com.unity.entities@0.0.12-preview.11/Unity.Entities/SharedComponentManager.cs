@@ -11,11 +11,11 @@ namespace Unity.Entities
     {
         private NativeMultiHashMap<int, int> m_HashLookup = new NativeMultiHashMap<int, int>(128, Allocator.Persistent);
 
-        private List<object>    m_SharedComponentData = new List<object>();
+        private List<object> m_SharedComponentData = new List<object>();
         private NativeList<int> m_SharedComponentRefCount = new NativeList<int>(0, Allocator.Persistent);
         private NativeList<int> m_SharedComponentType = new NativeList<int>(0, Allocator.Persistent);
         private NativeList<int> m_SharedComponentVersion = new NativeList<int>(0, Allocator.Persistent);
-        private int             m_FreeListIndex;
+        private int m_FreeListIndex;
 
         public SharedComponentDataManager()
         {
@@ -47,7 +47,7 @@ namespace Unity.Entities
             {
                 var data = m_SharedComponentData[i];
                 if (data != null && data.GetType() == typeof(T))
-                    sharedComponentValues.Add((T) m_SharedComponentData[i]);
+                    sharedComponentValues.Add((T)m_SharedComponentData[i]);
             }
         }
 
@@ -61,7 +61,7 @@ namespace Unity.Entities
                 var data = m_SharedComponentData[i];
                 if (data != null && data.GetType() == typeof(T))
                 {
-                    sharedComponentValues.Add((T) m_SharedComponentData[i]);
+                    sharedComponentValues.Add((T)m_SharedComponentData[i]);
                     sharedComponentIndices.Add(i);
                 }
             }
@@ -192,14 +192,25 @@ namespace Unity.Entities
             if (index == 0)
                 return default(T);
 
-            return (T) m_SharedComponentData[index];
+            return (T)m_SharedComponentData[index];
         }
 
         public object GetSharedComponentDataBoxed(int index)
         {
-            if (index == 0)
-                return Activator.CreateInstance(TypeManager.GetType(m_SharedComponentType[index]));
-
+            try
+            {
+                if (index == 0)
+                    return Activator.CreateInstance(TypeManager.GetType(m_SharedComponentType[index]));
+            }
+            catch
+            {
+                Debug.Log(index.ToString());
+                for (int i = 0; i < m_SharedComponentType.Length; i++)
+                {
+                    Debug.Log(i + ":xxx:" + m_SharedComponentType[i]);
+                }
+                throw;
+            }
             return m_SharedComponentData[index];
         }
 
@@ -222,7 +233,7 @@ namespace Unity.Entities
         private static unsafe void* PinGCObjectAndGetAddress(object target, out ulong handle)
         {
             var ptr = UnsafeUtility.PinGCObjectAndGetAddress(target, out handle);
-            return (byte*) ptr + TypeManager.ObjectOffset;
+            return (byte*)ptr + TypeManager.ObjectOffset;
         }
 
 
@@ -251,9 +262,9 @@ namespace Unity.Entities
             NativeMultiHashMapIterator<int> iter;
             if (!m_HashLookup.TryGetFirstValue(hashCode, out itemIndex, out iter))
             {
-                #if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 throw new System.ArgumentException("RemoveReference didn't find element in in hashtable");
-                #endif
+#endif
             }
 
             do
@@ -391,7 +402,7 @@ namespace Unity.Entities
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (!IsEmpty())
-               throw new System.ArgumentException("SharedComponentManager must be empty when deserializing a scene");
+                throw new System.ArgumentException("SharedComponentManager must be empty when deserializing a scene");
 #endif
 
             m_HashLookup.Clear();

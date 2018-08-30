@@ -285,7 +285,7 @@ namespace Unity.Entities
             CompleteDependencyInternal();
             UpdateInjectedComponentGroups();
 
-            m_DeferredEntities = new EntityCommandBuffer(Allocator.TempJob);
+            m_DeferredEntities = new EntityCommandBuffer(Allocator.Temp);
         }
 
         void AfterOnUpdate()
@@ -353,7 +353,7 @@ namespace Unity.Entities
 
         public EntityCommandBuffer CreateCommandBuffer()
         {
-            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var cmds = new EntityCommandBuffer(Allocator.Temp);
 
             m_PendingBuffers.Add(cmds);
 

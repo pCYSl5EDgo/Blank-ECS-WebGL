@@ -215,7 +215,7 @@ namespace Unity.Entities
         {
             int length = 0;
             var archetypeCount = archetypes.Length;
-            var offsets = new NativeArray<int>(archetypeCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            var offsets = new NativeArray<int>(archetypeCount, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             for (var i = 0; i < archetypeCount; i++)
             {
                 offsets[i] = length;

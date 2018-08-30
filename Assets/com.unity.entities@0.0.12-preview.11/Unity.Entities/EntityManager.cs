@@ -43,7 +43,7 @@ namespace Unity.Entities
 
         public override bool Equals(object compare)
         {
-            return this == (EntityArchetype) compare;
+            return this == (EntityArchetype)compare;
         }
 
         public bool Equals(EntityArchetype entityArchetype)
@@ -53,7 +53,7 @@ namespace Unity.Entities
 
         public override int GetHashCode()
         {
-            return (int) Archetype;
+            return (int)Archetype;
         }
 
         public int ChunkCount => Archetype->ChunkCount;
@@ -76,7 +76,7 @@ namespace Unity.Entities
 
         public override bool Equals(object compare)
         {
-            return this == (Entity) compare;
+            return this == (Entity)compare;
         }
 
         public override int GetHashCode()
@@ -95,17 +95,17 @@ namespace Unity.Entities
     [Preserve]
     public sealed unsafe class EntityManager : ScriptBehaviourManager
     {
-        EntityDataManager*                m_Entities;
+        EntityDataManager* m_Entities;
 
-        ArchetypeManager                  m_ArchetypeManager;
-        EntityGroupManager                m_GroupManager;
+        ArchetypeManager m_ArchetypeManager;
+        EntityGroupManager m_GroupManager;
 
-        internal SharedComponentDataManager        m_SharedComponentManager;
+        internal SharedComponentDataManager m_SharedComponentManager;
 
-        ExclusiveEntityTransaction        m_ExclusiveEntityTransaction;
+        ExclusiveEntityTransaction m_ExclusiveEntityTransaction;
 
-        ComponentType*                    m_CachedComponentTypeArray;
-        ComponentTypeInArchetype*         m_CachedComponentTypeInArchetypeArray;
+        ComponentType* m_CachedComponentTypeArray;
+        ComponentTypeInArchetype* m_CachedComponentTypeInArchetypeArray;
 
         internal object m_CachedComponentList;
 
@@ -165,7 +165,7 @@ namespace Unity.Entities
         {
             TypeManager.Initialize();
 
-            Entities = (EntityDataManager*) UnsafeUtility.Malloc(sizeof(EntityDataManager), 64, Allocator.Persistent);
+            Entities = (EntityDataManager*)UnsafeUtility.Malloc(sizeof(EntityDataManager), 64, Allocator.Persistent);
             Entities->OnCreate(capacity);
 
             m_SharedComponentManager = new SharedComponentDataManager();
@@ -178,9 +178,9 @@ namespace Unity.Entities
                 m_SharedComponentManager, Entities);
 
             m_CachedComponentTypeArray =
-                (ComponentType*) UnsafeUtility.Malloc(sizeof(ComponentType) * 32 * 1024, 16, Allocator.Persistent);
+                (ComponentType*)UnsafeUtility.Malloc(sizeof(ComponentType) * 32 * 1024, 16, Allocator.Persistent);
             m_CachedComponentTypeInArchetypeArray =
-                (ComponentTypeInArchetype*) UnsafeUtility.Malloc(sizeof(ComponentTypeInArchetype) * 32 * 1024, 16,
+                (ComponentTypeInArchetype*)UnsafeUtility.Malloc(sizeof(ComponentTypeInArchetype) * 32 * 1024, 16,
                     Allocator.Persistent);
         }
 
@@ -289,7 +289,7 @@ namespace Unity.Entities
 
         public void CreateEntity(EntityArchetype archetype, NativeArray<Entity> entities)
         {
-            CreateEntityInternal(archetype, (Entity*) entities.GetUnsafePtr(), entities.Length);
+            CreateEntityInternal(archetype, (Entity*)entities.GetUnsafePtr(), entities.Length);
         }
 
         public Entity CreateEntity(EntityArchetype archetype)
@@ -324,7 +324,7 @@ namespace Unity.Entities
                 NativeArrayOptions.UninitializedMemory);
             entityGroupArray.CopyTo(entityArray);
             if (entityArray.Length != 0)
-                Entities->TryRemoveEntityId((Entity*) entityArray.GetUnsafeReadOnlyPtr(), entityArray.Length,
+                Entities->TryRemoveEntityId((Entity*)entityArray.GetUnsafeReadOnlyPtr(), entityArray.Length,
                     ArchetypeManager, m_SharedComponentManager, m_GroupManager, m_CachedComponentTypeInArchetypeArray);
 
             entityArray.Dispose();
@@ -332,12 +332,12 @@ namespace Unity.Entities
 
         public void DestroyEntity(NativeArray<Entity> entities)
         {
-            DestroyEntityInternal((Entity*) entities.GetUnsafeReadOnlyPtr(), entities.Length);
+            DestroyEntityInternal((Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length);
         }
 
         public void DestroyEntity(NativeSlice<Entity> entities)
         {
-            DestroyEntityInternal((Entity*) entities.GetUnsafeReadOnlyPtr(), entities.Length);
+            DestroyEntityInternal((Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length);
         }
 
         public void DestroyEntity(Entity entity)
@@ -377,7 +377,7 @@ namespace Unity.Entities
 
         public void Instantiate(Entity srcEntity, NativeArray<Entity> outputEntities)
         {
-            InstantiateInternal(srcEntity, (Entity*) outputEntities.GetUnsafePtr(), outputEntities.Length);
+            InstantiateInternal(srcEntity, (Entity*)outputEntities.GetUnsafePtr(), outputEntities.Length);
         }
 
         internal void InstantiateInternal(Entity srcEntity, Entity* outputEntities, int count)
@@ -586,7 +586,7 @@ namespace Unity.Entities
 
             ComponentJobSafetyManager.CompleteReadAndWriteDependency(typeIndex);
 
-            BufferHeader* header = (BufferHeader*) Entities->GetComponentDataWithTypeRW(entity, typeIndex, Entities->GlobalSystemVersion);
+            BufferHeader* header = (BufferHeader*)Entities->GetComponentDataWithTypeRW(entity, typeIndex, Entities->GlobalSystemVersion);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             return new DynamicBuffer<T>(header, ComponentJobSafetyManager.GetSafetyHandle(typeIndex, false));
@@ -607,11 +607,11 @@ namespace Unity.Entities
             var enabledCount = enabledGroupArray.Length;
             var disabledCount = disabledGroupArray.Length;
             var count = enabledCount + disabledCount;
-            
+
             var array = new NativeArray<Entity>(count, allocator);
-            
+
             int copiedCount;
-            
+
             copiedCount = 0;
             while (copiedCount < enabledCount)
             {
@@ -619,15 +619,15 @@ namespace Unity.Entities
                 array.Slice(copiedCount, chunkArray.Length).CopyFrom(chunkArray);
                 copiedCount += chunkArray.Length;
             }
-            
+
             copiedCount = 0;
             while (copiedCount < disabledCount)
             {
                 var chunkArray = disabledGroupArray.GetChunkArray(copiedCount, disabledCount - copiedCount);
-                array.Slice(enabledCount+copiedCount, chunkArray.Length).CopyFrom(chunkArray);
+                array.Slice(enabledCount + copiedCount, chunkArray.Length).CopyFrom(chunkArray);
                 copiedCount += chunkArray.Length;
             }
-            
+
             return array;
         }
 
@@ -670,7 +670,7 @@ namespace Unity.Entities
             Entities->AssertEntitiesExist(&entity, 1);
             var archetype = Entities->GetArchetype(entity);
 
-            if ((uint) index >= archetype->TypesCount) return -1;
+            if ((uint)index >= archetype->TypesCount) return -1;
 
             return archetype->Types[index + 1].TypeIndex;
         }
@@ -752,7 +752,7 @@ namespace Unity.Entities
             if (!srcEntities.m_SharedComponentManager.AllSharedComponentReferencesAreFromChunks(srcEntities.ArchetypeManager))
                 throw new ArgumentException("EntityManager.MoveEntitiesFrom failed - All ISharedComponentData references must be from EntityManager. (For example ComponentGroup.SetFilter with a shared component type is not allowed during EntityManager.MoveEntitiesFrom)");
 #endif
-            
+
             BeforeStructuralChange();
             srcEntities.BeforeStructuralChange();
 
@@ -874,7 +874,7 @@ namespace Unity.Entities
                             if (!TestMatchingArchetypeAll(archetype, all, allCount))
                                 continue;
 
-                            var entityArchetype = new EntityArchetype {Archetype = archetype};
+                            var entityArchetype = new EntityArchetype { Archetype = archetype };
                             var found = false;
                             for (int i = 0; i < foundArchetypes.Length; ++i)
                             {
@@ -892,8 +892,7 @@ namespace Unity.Entities
             }
         }
 
-        public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(NativeList<EntityArchetype> archetypes,
-            Allocator allocator)
+        public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(NativeList<EntityArchetype> archetypes, Allocator allocator)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var safetyHandle = AtomicSafetyHandle.Create();
@@ -905,7 +904,7 @@ namespace Unity.Entities
 
         public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(EntityArchetypeQuery query, Allocator allocator)
         {
-            var foundArchetypes = new NativeList<EntityArchetype>(Allocator.TempJob);
+            var foundArchetypes = new NativeList<EntityArchetype>(Allocator.Temp);
             AddMatchingArchetypes(query, foundArchetypes);
             var chunkStream = CreateArchetypeChunkArray(foundArchetypes, allocator);
             foundArchetypes.Dispose();
@@ -977,7 +976,7 @@ namespace Unity.Entities
             public void PoisonUnusedDataInAllChunks(EntityArchetype archetype, byte value)
             {
                 for (var c = archetype.Archetype->ChunkList.Begin; c != archetype.Archetype->ChunkList.End; c = c->Next)
-                    ChunkDataUtility.PoisonUnusedChunkData((Chunk*) c, value);
+                    ChunkDataUtility.PoisonUnusedChunkData((Chunk*)c, value);
             }
 
             public void SetGlobalSystemVersion(uint version)

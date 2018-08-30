@@ -175,272 +175,261 @@ namespace Unity.Transforms
 
         void UpdateNewRootTransforms(EntityCommandBuffer entityCommandBuffer)
         {
-            if (NewRootChunks.Length == 0)
+            try
             {
-                NewRootChunks.Dispose();
-                return;
-            }
+                if (NewRootChunks.Length == 0)
+                    return;
 
-            for (int chunkIndex = 0; chunkIndex < NewRootChunks.Length; chunkIndex++)
-            {
-                var chunk = NewRootChunks[chunkIndex];
-                var parentCount = chunk.Count;
-
-                var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
-
-                for (int i = 0; i < parentCount; i++)
+                for (int chunkIndex = 0; chunkIndex < NewRootChunks.Length; chunkIndex++)
                 {
-                    var entity = chunkEntities[i];
+                    var chunk = NewRootChunks[chunkIndex];
+                    var parentCount = chunk.Count;
 
-                    entityCommandBuffer.AddComponent(entity, new LocalToWorld { Value = float4x4.identity });
+                    var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
+
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        var entity = chunkEntities[i];
+
+                        entityCommandBuffer.AddComponent(entity, new LocalToWorld { Value = float4x4.identity });
+                    }
                 }
             }
-
-            NewRootChunks.Dispose();
+            finally { NewRootChunks.Dispose(); }
         }
 
         bool UpdateAttach(EntityCommandBuffer entityCommandBuffer)
         {
-            if (AttachChunks.Length == 0)
+            try
             {
-                AttachChunks.Dispose();
-                return false;
-            }
+                if (AttachChunks.Length == 0)
+                    return false;
 
-            for (int chunkIndex = 0; chunkIndex < AttachChunks.Length; chunkIndex++)
-            {
-                var chunk = AttachChunks[chunkIndex];
-                var parentCount = chunk.Count;
-                var entities = chunk.GetNativeArray(EntityTypeRO);
-                var attaches = chunk.GetNativeArray(AttachTypeRO);
-
-                for (int i = 0; i < parentCount; i++)
+                for (int chunkIndex = 0; chunkIndex < AttachChunks.Length; chunkIndex++)
                 {
-                    var parentEntity = attaches[i].Parent;
-                    var childEntity = attaches[i].Child;
+                    var chunk = AttachChunks[chunkIndex];
+                    var parentCount = chunk.Count;
+                    var entities = chunk.GetNativeArray(EntityTypeRO);
+                    var attaches = chunk.GetNativeArray(AttachTypeRO);
 
-                    // Does the child have a previous parent?
-                    if (EntityManager.HasComponent<Parent>(childEntity))
+                    for (int i = 0; i < parentCount; i++)
                     {
-                        var previousParent = ParentFromEntityRW[childEntity];
-                        var previousParentEntity = previousParent.Value;
+                        var parentEntity = attaches[i].Parent;
+                        var childEntity = attaches[i].Child;
 
-                        if (IsChildTree(previousParentEntity))
+                        // Does the child have a previous parent?
+                        if (EntityManager.HasComponent<Parent>(childEntity))
                         {
-                            RemoveChildTree(previousParentEntity, childEntity);
-                            if (!IsChildTree(previousParentEntity))
+                            var previousParent = ParentFromEntityRW[childEntity];
+                            var previousParentEntity = previousParent.Value;
+
+                            if (IsChildTree(previousParentEntity))
                             {
-                                entityCommandBuffer.RemoveComponent<Depth>(previousParentEntity);
+                                RemoveChildTree(previousParentEntity, childEntity);
+                                if (!IsChildTree(previousParentEntity))
+                                {
+                                    entityCommandBuffer.RemoveComponent<Depth>(previousParentEntity);
+                                }
                             }
+
+                            ParentFromEntityRW[childEntity] = new Parent { Value = parentEntity };
+                        }
+                        else
+                        {
+                            entityCommandBuffer.AddComponent(childEntity, new Parent { Value = parentEntity });
+                            entityCommandBuffer.AddComponent(childEntity, new Attached());
+                            entityCommandBuffer.AddComponent(childEntity, new LocalToParent { Value = float4x4.identity });
                         }
 
-                        ParentFromEntityRW[childEntity] = new Parent { Value = parentEntity };
-                    }
-                    else
-                    {
-                        entityCommandBuffer.AddComponent(childEntity, new Parent { Value = parentEntity });
-                        entityCommandBuffer.AddComponent(childEntity, new Attached());
-                        entityCommandBuffer.AddComponent(childEntity, new LocalToParent { Value = float4x4.identity });
-                    }
+                        // parent wasn't previously a tree, so doesn't have depth
+                        if (!IsChildTree(parentEntity))
+                        {
+                            entityCommandBuffer.AddSharedComponent(parentEntity, new Depth { Value = 0 });
+                        }
 
-                    // parent wasn't previously a tree, so doesn't have depth
-                    if (!IsChildTree(parentEntity))
-                    {
-                        entityCommandBuffer.AddSharedComponent(parentEntity, new Depth { Value = 0 });
+                        AddChildTree(parentEntity, childEntity);
+
+                        entityCommandBuffer.DestroyEntity(entities[i]);
                     }
-
-                    AddChildTree(parentEntity, childEntity);
-
-                    entityCommandBuffer.DestroyEntity(entities[i]);
                 }
-            }
 
-            AttachChunks.Dispose();
-            return true;
+                return true;
+            }
+            finally { AttachChunks.Dispose(); }
         }
 
         bool UpdateDetach(EntityCommandBuffer entityCommandBuffer)
         {
-            if (DetachChunks.Length == 0)
+            try
             {
-                DetachChunks.Dispose();
-                return false;
-            }
+                if (DetachChunks.Length == 0)
+                    return false;
 
-            for (int chunkIndex = 0; chunkIndex < DetachChunks.Length; chunkIndex++)
-            {
-                var chunk = DetachChunks[chunkIndex];
-
-                var parentCount = chunk.Count;
-                var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
-                var parents = chunk.GetNativeArray(ParentTypeRO);
-
-                for (int i = 0; i < parentCount; i++)
+                for (int chunkIndex = 0; chunkIndex < DetachChunks.Length; chunkIndex++)
                 {
-                    var entity = chunkEntities[i];
-                    var parentEntity = parents[i].Value;
+                    var chunk = DetachChunks[chunkIndex];
 
-                    if (IsChildTree(parentEntity))
+                    var parentCount = chunk.Count;
+                    var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
+                    var parents = chunk.GetNativeArray(ParentTypeRO);
+
+                    for (int i = 0; i < parentCount; i++)
                     {
-                        RemoveChildTree(parentEntity, entity);
+                        var entity = chunkEntities[i];
+                        var parentEntity = parents[i].Value;
 
-                        if (!IsChildTree(parentEntity))
+                        if (IsChildTree(parentEntity))
                         {
-                            entityCommandBuffer.RemoveComponent<Depth>(parentEntity);
+                            RemoveChildTree(parentEntity, entity);
+
+                            if (!IsChildTree(parentEntity))
+                            {
+                                entityCommandBuffer.RemoveComponent<Depth>(parentEntity);
+                            }
                         }
+
+                        entityCommandBuffer.RemoveComponent<LocalToParent>(entity);
+                        entityCommandBuffer.RemoveComponent<Parent>(entity);
                     }
-
-                    entityCommandBuffer.RemoveComponent<LocalToParent>(entity);
-                    entityCommandBuffer.RemoveComponent<Parent>(entity);
                 }
-            }
 
-            DetachChunks.Dispose();
-            return true;
+                return true;
+            }
+            finally { DetachChunks.Dispose(); }
         }
 
         void UpdateRemoved(EntityCommandBuffer entityCommandBuffer)
         {
-            if (RemovedChunks.Length == 0)
+            try
             {
-                RemovedChunks.Dispose();
-                return;
-            }
+                if (RemovedChunks.Length == 0) return;
 
-            for (int chunkIndex = 0; chunkIndex < RemovedChunks.Length; chunkIndex++)
-            {
-                var chunk = RemovedChunks[chunkIndex];
-                var parentCount = chunk.Count;
-
-                var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
-
-                for (int i = 0; i < parentCount; i++)
+                for (int chunkIndex = 0; chunkIndex < RemovedChunks.Length; chunkIndex++)
                 {
-                    var entity = chunkEntities[i];
+                    var chunk = RemovedChunks[chunkIndex];
+                    var parentCount = chunk.Count;
 
-                    entityCommandBuffer.RemoveComponent<LocalToWorld>(entity);
+                    var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
+
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        var entity = chunkEntities[i];
+
+                        entityCommandBuffer.RemoveComponent<LocalToWorld>(entity);
+                    }
                 }
             }
-
-            RemovedChunks.Dispose();
+            finally { RemovedChunks.Dispose(); }
         }
 
         void UpdatePendingFrozen()
         {
-            if (PendingFrozenChunks.Length == 0)
+            try
             {
-                PendingFrozenChunks.Dispose();
-                return;
-            }
+                if (PendingFrozenChunks.Length == 0) return;
 
-            EntityCommandBuffer entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
-
-            for (int chunkIndex = 0; chunkIndex < PendingFrozenChunks.Length; chunkIndex++)
-            {
-                var chunk = PendingFrozenChunks[chunkIndex];
-                var parentCount = chunk.Count;
-
-                var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
-
-                for (int i = 0; i < parentCount; i++)
+                using (var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp))
                 {
-                    var entity = chunkEntities[i];
+                    for (int chunkIndex = 0; chunkIndex < PendingFrozenChunks.Length; chunkIndex++)
+                    {
+                        var chunk = PendingFrozenChunks[chunkIndex];
+                        var parentCount = chunk.Count;
 
-                    entityCommandBuffer.RemoveComponent<PendingFrozen>(entity);
-                    entityCommandBuffer.AddComponent(entity, default(Frozen));
+                        var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
+
+                        for (int i = 0; i < parentCount; i++)
+                        {
+                            var entity = chunkEntities[i];
+
+                            entityCommandBuffer.RemoveComponent<PendingFrozen>(entity);
+                            entityCommandBuffer.AddComponent(entity, default(Frozen));
+                        }
+                    }
+                    entityCommandBuffer.Playback(EntityManager);
                 }
             }
-
-            PendingFrozenChunks.Dispose();
-
-            entityCommandBuffer.Playback(EntityManager);
-            entityCommandBuffer.Dispose();
-
+            finally { PendingFrozenChunks.Dispose(); }
         }
 
         void UpdateFrozen()
         {
-            if (FrozenChunks.Length == 0)
+            try
             {
-                FrozenChunks.Dispose();
-                return;
-            }
+                if (FrozenChunks.Length == 0) return;
 
-            EntityCommandBuffer entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
-
-            for (int chunkIndex = 0; chunkIndex < FrozenChunks.Length; chunkIndex++)
-            {
-                var chunk = FrozenChunks[chunkIndex];
-                var parentCount = chunk.Count;
-
-                var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
-
-                for (int i = 0; i < parentCount; i++)
+                using (var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp))
                 {
-                    var entity = chunkEntities[i];
+                    for (int chunkIndex = 0; chunkIndex < FrozenChunks.Length; chunkIndex++)
+                    {
+                        var chunk = FrozenChunks[chunkIndex];
+                        var parentCount = chunk.Count;
 
-                    entityCommandBuffer.AddComponent(entity, default(PendingFrozen));
+                        var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
+
+                        for (int i = 0; i < parentCount; i++)
+                        {
+                            var entity = chunkEntities[i];
+
+                            entityCommandBuffer.AddComponent(entity, default(PendingFrozen));
+                        }
+                    }
+
+                    entityCommandBuffer.Playback(EntityManager);
                 }
             }
-
-            FrozenChunks.Dispose();
-
-            entityCommandBuffer.Playback(EntityManager);
-            entityCommandBuffer.Dispose();
+            finally { FrozenChunks.Dispose(); }
         }
 
         void UpdateThaw()
         {
-            if (ThawChunks.Length == 0)
+            try
             {
-                ThawChunks.Dispose();
-                return;
+                if (ThawChunks.Length == 0)
+                    return;
+
+                using (var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp))
+                {
+                    for (int chunkIndex = 0; chunkIndex < ThawChunks.Length; chunkIndex++)
+                    {
+                        var chunk = ThawChunks[chunkIndex];
+                        var parentCount = chunk.Count;
+
+                        var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
+                        var chunkFrozens = chunk.GetNativeArray(FrozenTypeRO);
+                        var chunkPendingFrozens = chunk.GetNativeArray(PendingFrozenTypeRO);
+                        var hasFrozen = chunkFrozens.Length > 0;
+                        var hasPendingFrozen = chunkPendingFrozens.Length > 0;
+
+                        if (hasFrozen && (!hasPendingFrozen))
+                        {
+                            for (int i = 0; i < parentCount; i++)
+                            {
+                                var entity = chunkEntities[i];
+                                entityCommandBuffer.RemoveComponent<Frozen>(entity);
+                            }
+                        }
+                        else if (hasFrozen && hasPendingFrozen)
+                        {
+                            for (int i = 0; i < parentCount; i++)
+                            {
+                                var entity = chunkEntities[i];
+                                entityCommandBuffer.RemoveComponent<Frozen>(entity);
+                                entityCommandBuffer.RemoveComponent<PendingFrozen>(entity);
+                            }
+                        }
+                        else if ((!hasFrozen) && hasPendingFrozen)
+                        {
+                            for (int i = 0; i < parentCount; i++)
+                            {
+                                var entity = chunkEntities[i];
+                                entityCommandBuffer.RemoveComponent<PendingFrozen>(entity);
+                            }
+                        }
+                    }
+                    entityCommandBuffer.Playback(EntityManager);
+                }
             }
-
-            EntityCommandBuffer entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
-
-            for (int chunkIndex = 0; chunkIndex < ThawChunks.Length; chunkIndex++)
-            {
-                var chunk = ThawChunks[chunkIndex];
-                var parentCount = chunk.Count;
-
-                var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
-                var chunkFrozens = chunk.GetNativeArray(FrozenTypeRO);
-                var chunkPendingFrozens = chunk.GetNativeArray(PendingFrozenTypeRO);
-                var hasFrozen = chunkFrozens.Length > 0;
-                var hasPendingFrozen = chunkPendingFrozens.Length > 0;
-
-                if (hasFrozen && (!hasPendingFrozen))
-                {
-                    for (int i = 0; i < parentCount; i++)
-                    {
-                        var entity = chunkEntities[i];
-                        entityCommandBuffer.RemoveComponent<Frozen>(entity);
-                    }
-                }
-                else if (hasFrozen && hasPendingFrozen)
-                {
-                    for (int i = 0; i < parentCount; i++)
-                    {
-                        var entity = chunkEntities[i];
-                        entityCommandBuffer.RemoveComponent<Frozen>(entity);
-                        entityCommandBuffer.RemoveComponent<PendingFrozen>(entity);
-                    }
-                }
-                else if ((!hasFrozen) && hasPendingFrozen)
-                {
-                    for (int i = 0; i < parentCount; i++)
-                    {
-                        var entity = chunkEntities[i];
-                        entityCommandBuffer.RemoveComponent<PendingFrozen>(entity);
-                    }
-                }
-            }
-
-            ThawChunks.Dispose();
-
-            entityCommandBuffer.Playback(EntityManager);
-            entityCommandBuffer.Dispose();
+            finally { ThawChunks.Dispose(); }
         }
 
         private static readonly ProfilerMarker k_ProfileUpdateNewRootTransforms = new ProfilerMarker("UpdateNewRootTransforms");
@@ -449,24 +438,25 @@ namespace Unity.Transforms
         private static readonly ProfilerMarker k_ProfileUpdateDAGPlayback = new ProfilerMarker("UpdateDAG.Playback");
         bool UpdateDAG()
         {
-            var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
+            bool changedAttached, changedDetached;
+            using (var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp))
+            {
+                k_ProfileUpdateNewRootTransforms.Begin();
+                UpdateNewRootTransforms(entityCommandBuffer);
+                k_ProfileUpdateNewRootTransforms.End();
 
-            k_ProfileUpdateNewRootTransforms.Begin();
-            UpdateNewRootTransforms(entityCommandBuffer);
-            k_ProfileUpdateNewRootTransforms.End();
+                k_ProfileUpdateDAGAttachDetach.Begin();
+                changedAttached = UpdateAttach(entityCommandBuffer);
+                changedDetached = UpdateDetach(entityCommandBuffer);
+                k_ProfileUpdateDAGAttachDetach.End();
 
-            k_ProfileUpdateDAGAttachDetach.Begin();
-            bool changedAttached = UpdateAttach(entityCommandBuffer);
-            bool changedDetached = UpdateDetach(entityCommandBuffer);
-            k_ProfileUpdateDAGAttachDetach.End();
+                k_ProfileUpdateUpdateRemoved.Begin();
+                UpdateRemoved(entityCommandBuffer);
+                k_ProfileUpdateUpdateRemoved.End();
 
-            k_ProfileUpdateUpdateRemoved.Begin();
-            UpdateRemoved(entityCommandBuffer);
-            k_ProfileUpdateUpdateRemoved.End();
-
-            k_ProfileUpdateDAGPlayback.Begin();
-            entityCommandBuffer.Playback(EntityManager);
-            entityCommandBuffer.Dispose();
+                k_ProfileUpdateDAGPlayback.Begin();
+                entityCommandBuffer.Playback(EntityManager);
+            }
             k_ProfileUpdateDAGPlayback.End();
 
             return changedAttached || changedDetached;
@@ -704,118 +694,124 @@ namespace Unity.Transforms
 
         unsafe void UpdateLeafLocalToParent()
         {
-            for (int length = LeafLocalToParentChunks.Length, chunkIndex = 0; chunkIndex < length; chunkIndex++)
+            try
             {
-                ref var chunk = ref UnsafeUtilityEx.ArrayElementAsRef<ArchetypeChunk>(LeafLocalToParentChunks.GetUnsafePtr(), chunkIndex);
-                var parentCount = chunk.Count;
+                for (int length = LeafLocalToParentChunks.Length, chunkIndex = 0; chunkIndex < length; chunkIndex++)
+                {
+                    ref var chunk = ref UnsafeUtilityEx.ArrayElementAsRef<ArchetypeChunk>(LeafLocalToParentChunks.GetUnsafePtr(), chunkIndex);
+                    var parentCount = chunk.Count;
 
-                var chunkRotations = chunk.GetNativeArray(RotationTypeRO);
-                var chunkPositions = chunk.GetNativeArray(PositionTypeRO);
-                var chunkScales = chunk.GetNativeArray(ScaleTypeRO);
-                var chunkLocalToParents = chunk.GetNativeArray(LocalToParentTypeRW);
+                    var chunkRotations = chunk.GetNativeArray(RotationTypeRO);
+                    var chunkPositions = chunk.GetNativeArray(PositionTypeRO);
+                    var chunkScales = chunk.GetNativeArray(ScaleTypeRO);
+                    var chunkLocalToParents = chunk.GetNativeArray(LocalToParentTypeRW);
 
-                var chunkRotationsChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(RotationTypeRO), LastSystemVersion);
-                var chunkPositionsChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(PositionTypeRO), LastSystemVersion);
-                var chunkScalesChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(ScaleTypeRO), LastSystemVersion);
-                var chunkAnyChanged = chunkRotationsChanged || chunkPositionsChanged || chunkScalesChanged;
+                    var chunkRotationsChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(RotationTypeRO), LastSystemVersion);
+                    var chunkPositionsChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(PositionTypeRO), LastSystemVersion);
+                    var chunkScalesChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(ScaleTypeRO), LastSystemVersion);
+                    var chunkAnyChanged = chunkRotationsChanged || chunkPositionsChanged || chunkScalesChanged;
 
-                if (!chunkAnyChanged)
-                    return;
+                    if (!chunkAnyChanged)
+                        return;
 
-                var chunkRotationsExist = chunkRotations.Length > 0;
-                var chunkPositionsExist = chunkPositions.Length > 0;
-                var chunkScalesExist = chunkScales.Length > 0;
+                    var chunkRotationsExist = chunkRotations.Length > 0;
+                    var chunkPositionsExist = chunkPositions.Length > 0;
+                    var chunkScalesExist = chunkScales.Length > 0;
 
-                // 001
-                if ((!chunkPositionsExist) && (!chunkRotationsExist) && (chunkScalesExist))
-                {
-                    for (int i = 0; i < parentCount; i++)
+                    // 001
+                    if ((!chunkPositionsExist) && (!chunkRotationsExist) && (chunkScalesExist))
                     {
-                        chunkLocalToParents[i] = new LocalToParent
+                        for (int i = 0; i < parentCount; i++)
                         {
-                            Value = math.mul(float4x4.translate(chunkPositions[i].Value),
-                                float4x4.scale(chunkScales[i].Value))
-                        };
+                            chunkLocalToParents[i] = new LocalToParent
+                            {
+                                Value = math.mul(float4x4.translate(chunkPositions[i].Value),
+                                    float4x4.scale(chunkScales[i].Value))
+                            };
+                        }
+                    }
+                    // 010
+                    else if ((!chunkPositionsExist) && (chunkRotationsExist) && (!chunkScalesExist))
+                    {
+                        for (int i = 0; i < parentCount; i++)
+                        {
+                            chunkLocalToParents[i] = new LocalToParent
+                            {
+                                Value = new float4x4(chunkRotations[i].Value, new float3())
+                            };
+                        }
+                    }
+                    // 011
+                    else if ((!chunkPositionsExist) && (chunkRotationsExist) && (chunkScalesExist))
+                    {
+                        for (int i = 0; i < parentCount; i++)
+                        {
+                            chunkLocalToParents[i] = new LocalToParent
+                            {
+                                Value = math.mul(new float4x4(chunkRotations[i].Value, new float3()),
+                                    float4x4.scale(chunkScales[i].Value))
+                            };
+                        }
+                    }
+                    // 100
+                    else if ((chunkPositionsExist) && (!chunkRotationsExist) && (!chunkScalesExist))
+                    {
+                        for (int i = 0; i < parentCount; i++)
+                        {
+                            chunkLocalToParents[i] = new LocalToParent
+                            {
+                                Value = float4x4.translate(chunkPositions[i].Value)
+                            };
+                        }
+                    }
+                    // 101
+                    else if ((chunkPositionsExist) && (!chunkRotationsExist) && (chunkScalesExist))
+                    {
+                        for (int i = 0; i < parentCount; i++)
+                        {
+                            chunkLocalToParents[i] = new LocalToParent
+                            {
+                                Value = math.mul(float4x4.translate(chunkPositions[i].Value),
+                                    float4x4.scale(chunkScales[i].Value))
+                            };
+                        }
+                    }
+                    // 110
+                    else if ((chunkPositionsExist) && (chunkRotationsExist) && (!chunkScalesExist))
+                    {
+                        for (int i = 0; i < parentCount; i++)
+                        {
+                            chunkLocalToParents[i] = new LocalToParent
+                            {
+                                Value = new float4x4(chunkRotations[i].Value, chunkPositions[i].Value)
+                            };
+                        }
+                    }
+                    // 111
+                    else if ((chunkPositionsExist) && (chunkRotationsExist) && (chunkScalesExist))
+                    {
+                        for (int i = 0; i < parentCount; i++)
+                        {
+                            chunkLocalToParents[i] = new LocalToParent
+                            {
+                                Value = math.mul(new float4x4(chunkRotations[i].Value, chunkPositions[i].Value),
+                                    float4x4.scale(chunkScales[i].Value))
+                            };
+                        }
                     }
                 }
-                // 010
-                else if ((!chunkPositionsExist) && (chunkRotationsExist) && (!chunkScalesExist))
-                {
-                    for (int i = 0; i < parentCount; i++)
-                    {
-                        chunkLocalToParents[i] = new LocalToParent
-                        {
-                            Value = new float4x4(chunkRotations[i].Value, new float3())
-                        };
-                    }
-                }
-                // 011
-                else if ((!chunkPositionsExist) && (chunkRotationsExist) && (chunkScalesExist))
-                {
-                    for (int i = 0; i < parentCount; i++)
-                    {
-                        chunkLocalToParents[i] = new LocalToParent
-                        {
-                            Value = math.mul(new float4x4(chunkRotations[i].Value, new float3()),
-                                float4x4.scale(chunkScales[i].Value))
-                        };
-                    }
-                }
-                // 100
-                else if ((chunkPositionsExist) && (!chunkRotationsExist) && (!chunkScalesExist))
-                {
-                    for (int i = 0; i < parentCount; i++)
-                    {
-                        chunkLocalToParents[i] = new LocalToParent
-                        {
-                            Value = float4x4.translate(chunkPositions[i].Value)
-                        };
-                    }
-                }
-                // 101
-                else if ((chunkPositionsExist) && (!chunkRotationsExist) && (chunkScalesExist))
-                {
-                    for (int i = 0; i < parentCount; i++)
-                    {
-                        chunkLocalToParents[i] = new LocalToParent
-                        {
-                            Value = math.mul(float4x4.translate(chunkPositions[i].Value),
-                                float4x4.scale(chunkScales[i].Value))
-                        };
-                    }
-                }
-                // 110
-                else if ((chunkPositionsExist) && (chunkRotationsExist) && (!chunkScalesExist))
-                {
-                    for (int i = 0; i < parentCount; i++)
-                    {
-                        chunkLocalToParents[i] = new LocalToParent
-                        {
-                            Value = new float4x4(chunkRotations[i].Value, chunkPositions[i].Value)
-                        };
-                    }
-                }
-                // 111
-                else if ((chunkPositionsExist) && (chunkRotationsExist) && (chunkScalesExist))
-                {
-                    for (int i = 0; i < parentCount; i++)
-                    {
-                        chunkLocalToParents[i] = new LocalToParent
-                        {
-                            Value = math.mul(new float4x4(chunkRotations[i].Value, chunkPositions[i].Value),
-                                float4x4.scale(chunkScales[i].Value))
-                        };
-                    }
-                }
+            }
+            finally
+            {
                 LeafLocalToParentChunks.Dispose();
             }
         }
 
         unsafe void UpdateInnerTreeLocalToWorld()
         {
-            var length = InnerTreeLocalToWorldChunks.Length;
             try
             {
+                var length = InnerTreeLocalToWorldChunks.Length;
                 if (length == 0) return;
                 var sharedComponentCount = EntityManager.GetSharedComponentCount();
                 var sharedDepths = new List<Depth>(sharedComponentCount);
@@ -894,9 +890,9 @@ namespace Unity.Transforms
 
         unsafe void UpdateLeafLocalToWorld()
         {
-            var length = LeafLocalToWorldChunks.Length;
             try
             {
+                var length = LeafLocalToWorldChunks.Length;
                 if (length == 0) return;
                 for (int i = 0; i < length; i++)
                 {
@@ -937,37 +933,37 @@ namespace Unity.Transforms
 
         void UpdateDepth()
         {
-            if (DepthChunks.Length == 0)
+            try
+            {
+                if (DepthChunks.Length == 0) return;
+
+                var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
+                k_ProfileUpdateDepthChunks.Begin();
+                for (int i = 0; i < DepthChunks.Length; i++)
+                {
+                    var chunk = DepthChunks[i];
+                    var entityCount = chunk.Count;
+                    var parents = chunk.GetNativeArray(ParentTypeRO);
+                    var entities = chunk.GetNativeArray(EntityTypeRO);
+                    for (int j = 0; j < entityCount; j++)
+                    {
+                        var entity = entities[j];
+                        var parentEntity = parents[j].Value;
+                        var parentCount = 1 + ParentCount(parentEntity);
+                        entityCommandBuffer.SetSharedComponent(entity, new Depth { Value = parentCount });
+                    }
+                }
+                k_ProfileUpdateDepthChunks.End();
+
+                k_ProfileUpdateDepthPlayback.Begin();
+                entityCommandBuffer.Playback(EntityManager);
+                entityCommandBuffer.Dispose();
+                k_ProfileUpdateDepthPlayback.End();
+            }
+            finally
             {
                 DepthChunks.Dispose();
-                return;
             }
-
-            EntityCommandBuffer entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
-
-            k_ProfileUpdateDepthChunks.Begin();
-            for (int i = 0; i < DepthChunks.Length; i++)
-            {
-                var chunk = DepthChunks[i];
-                var entityCount = chunk.Count;
-                var parents = chunk.GetNativeArray(ParentTypeRO);
-                var entities = chunk.GetNativeArray(EntityTypeRO);
-                for (int j = 0; j < entityCount; j++)
-                {
-                    var entity = entities[j];
-                    var parentEntity = parents[j].Value;
-                    var parentCount = 1 + ParentCount(parentEntity);
-                    entityCommandBuffer.SetSharedComponent(entity, new Depth { Value = parentCount });
-                }
-            }
-            k_ProfileUpdateDepthChunks.End();
-
-            k_ProfileUpdateDepthPlayback.Begin();
-            entityCommandBuffer.Playback(EntityManager);
-            entityCommandBuffer.Dispose();
-            k_ProfileUpdateDepthPlayback.End();
-
-            DepthChunks.Dispose();
         }
 
         void GatherQueries()
@@ -1054,31 +1050,31 @@ namespace Unity.Transforms
 
         void GatherFrozenChunks()
         {
-            PendingFrozenChunks = EntityManager.CreateArchetypeChunkArray(PendingFrozenQuery, Allocator.TempJob);
-            FrozenChunks = EntityManager.CreateArchetypeChunkArray(FrozenQuery, Allocator.TempJob);
-            ThawChunks = EntityManager.CreateArchetypeChunkArray(ThawQuery, Allocator.TempJob);
+            PendingFrozenChunks = EntityManager.CreateArchetypeChunkArray(PendingFrozenQuery, Allocator.Temp);
+            FrozenChunks = EntityManager.CreateArchetypeChunkArray(FrozenQuery, Allocator.Temp);
+            ThawChunks = EntityManager.CreateArchetypeChunkArray(ThawQuery, Allocator.Temp);
         }
 
         void GatherDAGChunks()
         {
-            NewRootChunks = EntityManager.CreateArchetypeChunkArray(NewRootQuery, Allocator.TempJob);
-            AttachChunks = EntityManager.CreateArchetypeChunkArray(AttachQuery, Allocator.TempJob);
-            DetachChunks = EntityManager.CreateArchetypeChunkArray(DetachQuery, Allocator.TempJob);
-            RemovedChunks = EntityManager.CreateArchetypeChunkArray(RemovedQuery, Allocator.TempJob);
+            NewRootChunks = EntityManager.CreateArchetypeChunkArray(NewRootQuery, Allocator.Temp);
+            AttachChunks = EntityManager.CreateArchetypeChunkArray(AttachQuery, Allocator.Temp);
+            DetachChunks = EntityManager.CreateArchetypeChunkArray(DetachQuery, Allocator.Temp);
+            RemovedChunks = EntityManager.CreateArchetypeChunkArray(RemovedQuery, Allocator.Temp);
         }
 
         void GatherDepthChunks()
         {
-            DepthChunks = EntityManager.CreateArchetypeChunkArray(DepthQuery, Allocator.TempJob);
+            DepthChunks = EntityManager.CreateArchetypeChunkArray(DepthQuery, Allocator.Temp);
         }
 
         void GatherUpdateChunks()
         {
-            RootLocalToWorldChunks = EntityManager.CreateArchetypeChunkArray(RootLocalToWorldQuery, Allocator.TempJob);
-            InnerTreeLocalToParentChunks = EntityManager.CreateArchetypeChunkArray(InnerTreeLocalToParentQuery, Allocator.TempJob);
-            LeafLocalToParentChunks = EntityManager.CreateArchetypeChunkArray(LeafLocalToParentQuery, Allocator.TempJob);
-            InnerTreeLocalToWorldChunks = EntityManager.CreateArchetypeChunkArray(InnerTreeLocalToWorldQuery, Allocator.TempJob);
-            LeafLocalToWorldChunks = EntityManager.CreateArchetypeChunkArray(LeafLocalToWorldQuery, Allocator.TempJob);
+            RootLocalToWorldChunks = EntityManager.CreateArchetypeChunkArray(RootLocalToWorldQuery, Allocator.Temp);
+            InnerTreeLocalToParentChunks = EntityManager.CreateArchetypeChunkArray(InnerTreeLocalToParentQuery, Allocator.Temp);
+            LeafLocalToParentChunks = EntityManager.CreateArchetypeChunkArray(LeafLocalToParentQuery, Allocator.Temp);
+            InnerTreeLocalToWorldChunks = EntityManager.CreateArchetypeChunkArray(InnerTreeLocalToWorldQuery, Allocator.Temp);
+            LeafLocalToWorldChunks = EntityManager.CreateArchetypeChunkArray(LeafLocalToWorldQuery, Allocator.Temp);
         }
 
         void GatherTypes()

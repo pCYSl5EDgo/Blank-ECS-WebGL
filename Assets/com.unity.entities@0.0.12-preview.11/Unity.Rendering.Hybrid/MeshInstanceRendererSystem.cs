@@ -164,134 +164,116 @@ namespace Unity.Rendering
             Profiler.EndSample();
 
             Profiler.BeginSample("Allocate Temp Data");
-            var chunkVisibleCount = new NativeArray<int>(m_Chunks.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-            var packedChunkIndices = new NativeArray<int>(m_Chunks.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            var chunkVisibleCount = new NativeArray<int>(m_Chunks.Length, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+            var packedChunkIndices = new NativeArray<int>(m_Chunks.Length, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             Profiler.EndSample();
-
-            float4x4* GetVisibleOutputBuffer(ArchetypeChunk chunk)
+            try
             {
-                var chunkVisibleLocalToWorld = chunk.GetNativeArray(visibleLocalToWorldType);
-                return (float4x4*)chunkVisibleLocalToWorld.GetUnsafePtr();
-            }
-
-            float4x4* GetLocalToWorldSourceBuffer(ArchetypeChunk chunk)
-            {
-                var chunkCustomLocalToWorld = chunk.GetNativeArray(customLocalToWorldType);
-                var chunkLocalToWorld = chunk.GetNativeArray(localToWorldType);
-
-                if (chunkCustomLocalToWorld.Length > 0)
-                    return (float4x4*)chunkCustomLocalToWorld.GetUnsafeReadOnlyPtr();
-                else if (chunkLocalToWorld.Length > 0)
-                    return (float4x4*)chunkLocalToWorld.GetUnsafeReadOnlyPtr();
-                else
-                    return null;
-            }
-
-            void VisibleIn(int index)
-            {
-                var chunk = m_Chunks[index];
-                var chunkEntityCount = chunk.Count;
-                var chunkVisibleCount_ = 0;
-                var chunkLODs = chunk.GetNativeArray(meshLODComponentType);
-                var hasMeshLODComponentType = chunkLODs.Length > 0;
-
-                float4x4* dstPtr = GetVisibleOutputBuffer(chunk);
-                float4x4* srcPtr = GetLocalToWorldSourceBuffer(chunk);
-                if (srcPtr == null)
-                    return;
-
-                if (!hasMeshLODComponentType)
+                float4x4* GetVisibleOutputBuffer(ArchetypeChunk chunk)
                 {
-                    for (int i = 0; i < chunkEntityCount; i++)
-                    {
-                        UnsafeUtility.MemCpy(dstPtr + chunkVisibleCount_ + i, srcPtr + i, UnsafeUtility.SizeOf<float4x4>());
-                    }
-
-                    chunkVisibleCount_ = chunkEntityCount;
+                    var chunkVisibleLocalToWorld = chunk.GetNativeArray(visibleLocalToWorldType);
+                    return (float4x4*)chunkVisibleLocalToWorld.GetUnsafePtr();
                 }
-                else
+
+                float4x4* GetLocalToWorldSourceBuffer(ArchetypeChunk chunk)
                 {
-                    for (int i = 0; i < chunkEntityCount; i++)
+                    var chunkCustomLocalToWorld = chunk.GetNativeArray(customLocalToWorldType);
+                    var chunkLocalToWorld = chunk.GetNativeArray(localToWorldType);
+
+                    if (chunkCustomLocalToWorld.Length > 0)
+                        return (float4x4*)chunkCustomLocalToWorld.GetUnsafeReadOnlyPtr();
+                    else if (chunkLocalToWorld.Length > 0)
+                        return (float4x4*)chunkLocalToWorld.GetUnsafeReadOnlyPtr();
+                    else
+                        return null;
+                }
+
+                void VisibleIn(int index)
+                {
+                    var chunk = m_Chunks[index];
+                    var chunkEntityCount = chunk.Count;
+                    var chunkVisibleCount_ = 0;
+                    var chunkLODs = chunk.GetNativeArray(meshLODComponentType);
+                    var hasMeshLODComponentType = chunkLODs.Length > 0;
+
+                    float4x4* dstPtr = GetVisibleOutputBuffer(chunk);
+                    float4x4* srcPtr = GetLocalToWorldSourceBuffer(chunk);
+                    if (srcPtr == null)
+                        return;
+
+                    if (!hasMeshLODComponentType)
                     {
-                        var instanceLOD = chunkLODs[i];
-                        var instanceLODValid = (activeLODGroupMask[instanceLOD.Group].LODMask & instanceLOD.LODMask) != 0;
-                        if (instanceLODValid)
+                        for (int i = 0; i < chunkEntityCount; i++)
                         {
-                            UnsafeUtility.MemCpy(dstPtr + chunkVisibleCount_, srcPtr + i, UnsafeUtility.SizeOf<float4x4>());
-                            chunkVisibleCount_++;
+                            UnsafeUtility.MemCpy(dstPtr + chunkVisibleCount_ + i, srcPtr + i, UnsafeUtility.SizeOf<float4x4>());
+                        }
+
+                        chunkVisibleCount_ = chunkEntityCount;
+                    }
+                    else
+                    {
+                        for (int i = 0; i < chunkEntityCount; i++)
+                        {
+                            var instanceLOD = chunkLODs[i];
+                            var instanceLODValid = (activeLODGroupMask[instanceLOD.Group].LODMask & instanceLOD.LODMask) != 0;
+                            if (instanceLODValid)
+                            {
+                                UnsafeUtility.MemCpy(dstPtr + chunkVisibleCount_, srcPtr + i, UnsafeUtility.SizeOf<float4x4>());
+                                chunkVisibleCount_++;
+                            }
                         }
                     }
+
+                    chunkVisibleCount[index] = chunkVisibleCount_;
                 }
 
-                chunkVisibleCount[index] = chunkVisibleCount_;
-            }
-
-            void VisiblePartial(int index)
-            {
-                var chunk = m_Chunks[index];
-                var chunkEntityCount = chunk.Count;
-                var chunkVisibleCount_ = 0;
-                var chunkLODs = chunk.GetNativeArray(meshLODComponentType);
-                var chunkBounds = chunk.GetNativeArray(worldMeshRenderBoundsType);
-                var hasMeshLODComponentType = chunkLODs.Length > 0;
-                var hasWorldMeshRenderBounds = chunkBounds.Length > 0;
-
-                float4x4* dstPtr = GetVisibleOutputBuffer(chunk);
-                float4x4* srcPtr = GetLocalToWorldSourceBuffer(chunk);
-                if (srcPtr == null)
-                    return;
-
-                // 00 (-WorldMeshRenderBounds -MeshLODComponentType)
-                if ((!hasWorldMeshRenderBounds) && (!hasMeshLODComponentType))
+                void VisiblePartial(int index)
                 {
-                    for (int i = 0; i < chunkEntityCount; i++)
-                    {
-                        UnsafeUtility.MemCpy(dstPtr + chunkVisibleCount_ + i, srcPtr + i, UnsafeUtility.SizeOf<float4x4>());
-                    }
+                    var chunk = m_Chunks[index];
+                    var chunkEntityCount = chunk.Count;
+                    var chunkVisibleCount_ = 0;
+                    var chunkLODs = chunk.GetNativeArray(meshLODComponentType);
+                    var chunkBounds = chunk.GetNativeArray(worldMeshRenderBoundsType);
+                    var hasMeshLODComponentType = chunkLODs.Length > 0;
+                    var hasWorldMeshRenderBounds = chunkBounds.Length > 0;
 
-                    chunkVisibleCount_ = chunkEntityCount;
-                }
-                // 01 (-WorldMeshRenderBounds +MeshLODComponentType)
-                else if ((!hasWorldMeshRenderBounds) && (hasMeshLODComponentType))
-                {
-                    for (int i = 0; i < chunkEntityCount; i++)
+                    float4x4* dstPtr = GetVisibleOutputBuffer(chunk);
+                    float4x4* srcPtr = GetLocalToWorldSourceBuffer(chunk);
+                    if (srcPtr == null)
+                        return;
+
+                    // 00 (-WorldMeshRenderBounds -MeshLODComponentType)
+                    if ((!hasWorldMeshRenderBounds) && (!hasMeshLODComponentType))
                     {
-                        var instanceLOD = chunkLODs[i];
-                        var instanceLODValid = (activeLODGroupMask[instanceLOD.Group].LODMask & instanceLOD.LODMask) != 0;
-                        if (instanceLODValid)
+                        for (int i = 0; i < chunkEntityCount; i++)
                         {
-                            UnsafeUtility.MemCpy(dstPtr + chunkVisibleCount_, srcPtr + i, UnsafeUtility.SizeOf<float4x4>());
-                            chunkVisibleCount_++;
+                            UnsafeUtility.MemCpy(dstPtr + chunkVisibleCount_ + i, srcPtr + i, UnsafeUtility.SizeOf<float4x4>());
+                        }
+
+                        chunkVisibleCount_ = chunkEntityCount;
+                    }
+                    // 01 (-WorldMeshRenderBounds +MeshLODComponentType)
+                    else if ((!hasWorldMeshRenderBounds) && (hasMeshLODComponentType))
+                    {
+                        for (int i = 0; i < chunkEntityCount; i++)
+                        {
+                            var instanceLOD = chunkLODs[i];
+                            var instanceLODValid = (activeLODGroupMask[instanceLOD.Group].LODMask & instanceLOD.LODMask) != 0;
+                            if (instanceLODValid)
+                            {
+                                UnsafeUtility.MemCpy(dstPtr + chunkVisibleCount_, srcPtr + i, UnsafeUtility.SizeOf<float4x4>());
+                                chunkVisibleCount_++;
+                            }
                         }
                     }
-                }
-                // 10 (+WorldMeshRenderBounds -MeshLODComponentType)
-                else if ((hasWorldMeshRenderBounds) && (!hasMeshLODComponentType))
-                {
-                    for (int i = 0; i < chunkEntityCount; i++)
+                    // 10 (+WorldMeshRenderBounds -MeshLODComponentType)
+                    else if ((hasWorldMeshRenderBounds) && (!hasMeshLODComponentType))
                     {
-                        var instanceBounds = chunkBounds[i];
-                        var instanceCullValid = (m_Planes.Inside(instanceBounds) != FrustumPlanes.InsideResult.Out);
-
-                        if (instanceCullValid)
-                        {
-                            UnsafeUtility.MemCpy(dstPtr + chunkVisibleCount_, srcPtr + i, UnsafeUtility.SizeOf<float4x4>());
-                            chunkVisibleCount_++;
-                        }
-                    }
-                }
-                // 11 (+WorldMeshRenderBounds +MeshLODComponentType)
-                else
-                {
-
-                    for (int i = 0; i < chunkEntityCount; i++)
-                    {
-                        var instanceLOD = chunkLODs[i];
-                        var instanceLODValid = (activeLODGroupMask[instanceLOD.Group].LODMask & instanceLOD.LODMask) != 0;
-                        if (instanceLODValid)
+                        for (int i = 0; i < chunkEntityCount; i++)
                         {
                             var instanceBounds = chunkBounds[i];
                             var instanceCullValid = (m_Planes.Inside(instanceBounds) != FrustumPlanes.InsideResult.Out);
+
                             if (instanceCullValid)
                             {
                                 UnsafeUtility.MemCpy(dstPtr + chunkVisibleCount_, srcPtr + i, UnsafeUtility.SizeOf<float4x4>());
@@ -299,61 +281,100 @@ namespace Unity.Rendering
                             }
                         }
                     }
+                    // 11 (+WorldMeshRenderBounds +MeshLODComponentType)
+                    else
+                    {
+
+                        for (int i = 0; i < chunkEntityCount; i++)
+                        {
+                            var instanceLOD = chunkLODs[i];
+                            var instanceLODValid = (activeLODGroupMask[instanceLOD.Group].LODMask & instanceLOD.LODMask) != 0;
+                            if (instanceLODValid)
+                            {
+                                var instanceBounds = chunkBounds[i];
+                                var instanceCullValid = (m_Planes.Inside(instanceBounds) != FrustumPlanes.InsideResult.Out);
+                                if (instanceCullValid)
+                                {
+                                    UnsafeUtility.MemCpy(dstPtr + chunkVisibleCount_, srcPtr + i, UnsafeUtility.SizeOf<float4x4>());
+                                    chunkVisibleCount_++;
+                                }
+                            }
+                        }
+                    }
+
+                    chunkVisibleCount[index] = chunkVisibleCount_;
                 }
-
-                chunkVisibleCount[index] = chunkVisibleCount_;
-            }
-            for (int index = 0; index < m_Chunks.Length; index++)
-            {
-                var chunk = m_Chunks[index];
-
-                var hasWorldMeshRenderBounds = chunk.GetNativeArray(worldMeshRenderBoundsType).Length > 0;
-                if (!hasWorldMeshRenderBounds)
+                for (int index = 0; index < m_Chunks.Length; index++)
                 {
-                    VisibleIn(index);
-                    return;
+                    var chunk = m_Chunks[index];
+
+                    var hasWorldMeshRenderBounds = chunk.GetNativeArray(worldMeshRenderBoundsType).Length > 0;
+                    if (!hasWorldMeshRenderBounds)
+                    {
+                        VisibleIn(index);
+                        return;
+                    }
+
+                    var chunkBounds = m_ChunkBounds[index];
+                    var chunkInsideResult = m_Planes.Inside(chunkBounds);
+                    if (chunkInsideResult == FrustumPlanes.InsideResult.Out)
+                    {
+                        chunkVisibleCount[index] = 0;
+                    }
+                    else if (chunkInsideResult == FrustumPlanes.InsideResult.In)
+                    {
+                        VisibleIn(index);
+                    }
+                    else
+                    {
+                        VisiblePartial(index);
+                    }
                 }
 
-                var chunkBounds = m_ChunkBounds[index];
-                var chunkInsideResult = m_Planes.Inside(chunkBounds);
-                if (chunkInsideResult == FrustumPlanes.InsideResult.Out)
+                var packedChunkCount = 0;
+                for (int i = 0; i < m_Chunks.Length; i++)
+                    if (chunkVisibleCount[i] > 0)
+                        packedChunkIndices[packedChunkCount++] = i;
+
+                Profiler.BeginSample("Process DrawMeshInstanced");
+                var drawCount = 0;
+                var lastRendererIndex = -1;
+                var batchCount = 0;
+                var flippedWinding = false;
+
+                for (int i = 0; i < packedChunkCount; i++)
                 {
-                    chunkVisibleCount[index] = 0;
+                    var chunkIndex = packedChunkIndices[i];
+                    var chunk = m_Chunks[chunkIndex];
+                    var rendererIndex = chunk.GetSharedComponentIndex(meshInstanceRendererType);
+                    var activeCount = chunkVisibleCount[chunkIndex];
+                    var rendererChanged = rendererIndex != lastRendererIndex;
+                    var fullBatch = ((batchCount + activeCount) > 1023);
+                    var visibleTransforms = chunk.GetNativeArray(visibleLocalToWorldType);
+
+                    var newFlippedWinding = chunk.GetNativeArray(meshInstanceFlippedTagType).Length > 0;
+
+                    if ((fullBatch || rendererChanged || (newFlippedWinding != flippedWinding)) && (batchCount > 0))
+                    {
+                        var renderer = EntityManager.GetSharedComponentData<MeshInstanceRenderer>(lastRendererIndex);
+                        if (renderer.mesh && renderer.material)
+                        {
+                            Graphics.DrawMeshInstanced(renderer.mesh, renderer.subMesh, renderer.material, m_MatricesArray,
+                                batchCount, null, renderer.castShadows, renderer.receiveShadows, 0, ActiveCamera);
+                        }
+
+                        drawCount++;
+                        batchCount = 0;
+                    }
+
+                    CopyTo(visibleTransforms, activeCount, m_MatricesArray, batchCount);
+
+                    flippedWinding = newFlippedWinding;
+                    batchCount += activeCount;
+                    lastRendererIndex = rendererIndex;
                 }
-                else if (chunkInsideResult == FrustumPlanes.InsideResult.In)
-                {
-                    VisibleIn(index);
-                }
-                else
-                {
-                    VisiblePartial(index);
-                }
-            }
 
-            var packedChunkCount = 0;
-            for (int i = 0; i < m_Chunks.Length; i++)
-                if (chunkVisibleCount[i] > 0)
-                    packedChunkIndices[packedChunkCount++] = i;
-
-            Profiler.BeginSample("Process DrawMeshInstanced");
-            var drawCount = 0;
-            var lastRendererIndex = -1;
-            var batchCount = 0;
-            var flippedWinding = false;
-
-            for (int i = 0; i < packedChunkCount; i++)
-            {
-                var chunkIndex = packedChunkIndices[i];
-                var chunk = m_Chunks[chunkIndex];
-                var rendererIndex = chunk.GetSharedComponentIndex(meshInstanceRendererType);
-                var activeCount = chunkVisibleCount[chunkIndex];
-                var rendererChanged = rendererIndex != lastRendererIndex;
-                var fullBatch = ((batchCount + activeCount) > 1023);
-                var visibleTransforms = chunk.GetNativeArray(visibleLocalToWorldType);
-
-                var newFlippedWinding = chunk.GetNativeArray(meshInstanceFlippedTagType).Length > 0;
-
-                if ((fullBatch || rendererChanged || (newFlippedWinding != flippedWinding)) && (batchCount > 0))
+                if (batchCount > 0)
                 {
                     var renderer = EntityManager.GetSharedComponentData<MeshInstanceRenderer>(lastRendererIndex);
                     if (renderer.mesh && renderer.material)
@@ -363,31 +384,14 @@ namespace Unity.Rendering
                     }
 
                     drawCount++;
-                    batchCount = 0;
                 }
-
-                CopyTo(visibleTransforms, activeCount, m_MatricesArray, batchCount);
-
-                flippedWinding = newFlippedWinding;
-                batchCount += activeCount;
-                lastRendererIndex = rendererIndex;
+                Profiler.EndSample();
             }
-
-            if (batchCount > 0)
+            finally
             {
-                var renderer = EntityManager.GetSharedComponentData<MeshInstanceRenderer>(lastRendererIndex);
-                if (renderer.mesh && renderer.material)
-                {
-                    Graphics.DrawMeshInstanced(renderer.mesh, renderer.subMesh, renderer.material, m_MatricesArray,
-                        batchCount, null, renderer.castShadows, renderer.receiveShadows, 0, ActiveCamera);
-                }
-
-                drawCount++;
+                packedChunkIndices.Dispose();
+                chunkVisibleCount.Dispose();
             }
-            Profiler.EndSample();
-
-            packedChunkIndices.Dispose();
-            chunkVisibleCount.Dispose();
         }
 
         void UpdateChunkCache()
@@ -411,66 +415,75 @@ namespace Unity.Rendering
             var worldMeshRenderBoundsType = GetArchetypeChunkComponentType<WorldMeshRenderBounds>(true);
 
             // Allocate temp data
-            var chunkRendererMap = new NativeMultiHashMap<int, int>(100000, Allocator.TempJob);
-            var foundArchetypes = new NativeList<EntityArchetype>(Allocator.TempJob);
-
-            Profiler.BeginSample("CreateArchetypeChunkArray");
-            EntityManager.AddMatchingArchetypes(m_CustomLocalToWorldQuery, foundArchetypes);
-            EntityManager.AddMatchingArchetypes(m_LocalToWorldQuery, foundArchetypes);
-            var chunks = EntityManager.CreateArchetypeChunkArray(foundArchetypes, Allocator.TempJob);
-            Profiler.EndSample();
-
-            m_Chunks = new NativeArray<ArchetypeChunk>(chunks.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-            m_ChunkBounds = new NativeArray<WorldMeshRenderBounds>(chunks.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-
-            for (int index = 0; index < chunks.Length; index++)
+            var chunkRendererMap = new NativeMultiHashMap<int, int>(100000, Allocator.Temp);
+            var foundArchetypes = new NativeList<EntityArchetype>(Allocator.Temp);
+            try
             {
-                var chunk = chunks[index];
-                var rendererSharedComponentIndex = chunk.GetSharedComponentIndex(meshInstanceRendererType);
-                chunkRendererMap.Add(rendererSharedComponentIndex, index);
-            }
-
-            for (int i = 0, sortedIndex = 0; i < sharedComponentCount; i++)
-            {
-                if (!chunkRendererMap.TryGetFirstValue(i, out var chunkIndex, out var it))
-                    continue;
-                do
+                Profiler.BeginSample("CreateArchetypeChunkArray");
+                EntityManager.AddMatchingArchetypes(m_CustomLocalToWorldQuery, foundArchetypes);
+                EntityManager.AddMatchingArchetypes(m_LocalToWorldQuery, foundArchetypes);
+                var chunks = EntityManager.CreateArchetypeChunkArray(foundArchetypes, Allocator.Temp);
+                Profiler.EndSample();
+                try
                 {
-                    m_Chunks[sortedIndex] = chunks[chunkIndex];
-                    sortedIndex++;
-                } while (chunkRendererMap.TryGetNextValue(out chunkIndex, ref it));
-            }
+                    m_Chunks = new NativeArray<ArchetypeChunk>(chunks.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                    m_ChunkBounds = new NativeArray<WorldMeshRenderBounds>(chunks.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
 
-            for (int index = 0; index < chunks.Length; index++)
-            {
-                var chunk = m_Chunks[index];
+                    for (int index = 0; index < chunks.Length; index++)
+                    {
+                        var chunk = chunks[index];
+                        var rendererSharedComponentIndex = chunk.GetSharedComponentIndex(meshInstanceRendererType);
+                        chunkRendererMap.Add(rendererSharedComponentIndex, index);
+                    }
 
-                var instanceBounds = chunk.GetNativeArray(worldMeshRenderBoundsType);
-                if (instanceBounds.Length == 0)
-                    return;
+                    for (int i = 0, sortedIndex = 0; i < sharedComponentCount; i++)
+                    {
+                        if (!chunkRendererMap.TryGetFirstValue(i, out var chunkIndex, out var it))
+                            continue;
+                        do
+                        {
+                            m_Chunks[sortedIndex] = chunks[chunkIndex];
+                            sortedIndex++;
+                        } while (chunkRendererMap.TryGetNextValue(out chunkIndex, ref it));
+                    }
 
-                // TODO: Improve this approach
-                // See: https://www.inf.ethz.ch/personal/emo/DoctThesisFiles/fischer05.pdf
+                    for (int index = 0; index < chunks.Length; index++)
+                    {
+                        var chunk = m_Chunks[index];
 
-                var chunkBounds = new WorldMeshRenderBounds();
-                for (int j = 0; j < instanceBounds.Length; j++)
-                {
-                    chunkBounds.Center += instanceBounds[j].Center;
+                        var instanceBounds = chunk.GetNativeArray(worldMeshRenderBoundsType);
+                        if (instanceBounds.Length == 0)
+                            return;
+
+                        // TODO: Improve this approach
+                        // See: https://www.inf.ethz.ch/personal/emo/DoctThesisFiles/fischer05.pdf
+
+                        var chunkBounds = new WorldMeshRenderBounds();
+                        for (int j = 0; j < instanceBounds.Length; j++)
+                        {
+                            chunkBounds.Center += instanceBounds[j].Center;
+                        }
+                        chunkBounds.Center /= instanceBounds.Length;
+
+                        for (int j = 0; j < instanceBounds.Length; j++)
+                        {
+                            float r = math.distance(chunkBounds.Center, instanceBounds[j].Center) + instanceBounds[j].Radius;
+                            chunkBounds.Radius = math.select(chunkBounds.Radius, r, r > chunkBounds.Radius);
+                        }
+
+                        m_ChunkBounds[index] = chunkBounds;
+                    }
                 }
-                chunkBounds.Center /= instanceBounds.Length;
-
-                for (int j = 0; j < instanceBounds.Length; j++)
+                finally
                 {
-                    float r = math.distance(chunkBounds.Center, instanceBounds[j].Center) + instanceBounds[j].Radius;
-                    chunkBounds.Radius = math.select(chunkBounds.Radius, r, r > chunkBounds.Radius);
+                    chunks.Dispose();
                 }
-
-                m_ChunkBounds[index] = chunkBounds;
             }
-
-            foundArchetypes.Dispose();
-            chunkRendererMap.Dispose();
-            chunks.Dispose();
+            finally
+            {
+                foundArchetypes.Dispose();
+                chunkRendererMap.Dispose();
+            }
 
             m_LastVisibleLocalToWorldOrderVersion = visibleLocalToWorldOrderVersion;
         }
@@ -494,7 +507,7 @@ namespace Unity.Rendering
                 All = new ComponentType[] { typeof(MeshInstanceRenderer) }
             };
             var entityType = GetArchetypeChunkEntityType();
-            var chunks = EntityManager.CreateArchetypeChunkArray(query, Allocator.TempJob);
+            var chunks = EntityManager.CreateArchetypeChunkArray(query, Allocator.Temp);
             for (int i = 0; i < chunks.Length; i++)
             {
                 var chunk = chunks[i];

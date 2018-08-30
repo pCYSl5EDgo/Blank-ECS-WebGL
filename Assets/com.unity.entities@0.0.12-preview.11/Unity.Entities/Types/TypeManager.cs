@@ -216,7 +216,7 @@ namespace Unity.Entities
                 category = TypeCategory.BufferData;
                 elementSize = UnsafeUtility.SizeOf(type);
 
-                var capacityAttribute = (InternalBufferCapacityAttribute) type.GetCustomAttribute(typeof(InternalBufferCapacityAttribute));
+                var capacityAttribute = (InternalBufferCapacityAttribute)type.GetCustomAttribute(typeof(InternalBufferCapacityAttribute));
                 if (capacityAttribute != null)
                     bufferCapacity = capacityAttribute.Capacity;
                 else
@@ -225,7 +225,7 @@ namespace Unity.Entities
                 componentSize = sizeof(BufferHeader) + bufferCapacity * elementSize;
                 typeInfo = FastEquality.CreateTypeInfo(type);
                 entityOffsets = EntityRemapUtility.CalculateEntityOffsets(type);
-             }
+            }
             else if (typeof(ISharedComponentData).IsAssignableFrom(type))
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -278,7 +278,15 @@ namespace Unity.Entities
 
         public static Type GetType(int typeIndex)
         {
-            return s_Types[typeIndex].Type;
+            try
+            {
+                return s_Types[typeIndex].Type;
+            }
+            catch
+            {
+                Debug.Log(typeIndex + ":" + s_Count);
+                throw;
+            }
         }
 
         public static int GetTypeCount()
