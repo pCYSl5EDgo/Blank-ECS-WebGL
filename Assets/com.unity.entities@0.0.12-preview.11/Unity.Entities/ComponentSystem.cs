@@ -78,20 +78,7 @@ namespace Unity.Entities
             ComponentSystemInjection.Inject(this, world, m_EntityManager, out m_InjectedComponentGroups, out m_InjectFromEntityData);
             m_InjectFromEntityData.ExtractJobDependencyTypes(this);
 
-            InjectNestedIJobProcessComponentDataJobs();
-
             UpdateInjectedComponentGroups();
-        }
-
-        void InjectNestedIJobProcessComponentDataJobs()
-        {
-            // Create ComponentGroup for all nested IJobProcessComponentData jobs
-            foreach (var nestedType in GetType().GetNestedTypes(BindingFlags.FlattenHierarchy | BindingFlags.NonPublic))
-            {
-                var componentTypes = IJobProcessComponentDataUtility.GetComponentTypes(nestedType);
-                if (componentTypes != null)
-                    GetComponentGroup(componentTypes);
-            }
         }
 
         protected sealed override void OnAfterDestroyManagerInternal()

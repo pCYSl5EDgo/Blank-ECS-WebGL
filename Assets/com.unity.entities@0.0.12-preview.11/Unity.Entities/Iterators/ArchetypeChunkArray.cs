@@ -11,7 +11,7 @@ namespace Unity.Entities
     {
         [NativeDisableUnsafePtrRestriction] internal Chunk* m_Chunk;
         public int Count => m_Chunk->Count;
-        
+
         public static bool operator ==(ArchetypeChunk lhs, ArchetypeChunk rhs)
         {
             return lhs.m_Chunk == rhs.m_Chunk;
@@ -24,14 +24,14 @@ namespace Unity.Entities
 
         public override bool Equals(object compare)
         {
-            return this == (ArchetypeChunk) compare;
+            return this == (ArchetypeChunk)compare;
         }
 
         public override int GetHashCode()
         {
-            UIntPtr chunkAddr   = (UIntPtr) m_Chunk;
-            long    chunkHiHash = ((long) chunkAddr) >> 15;
-            int     chunkHash   = (int)chunkHiHash;
+            UIntPtr chunkAddr = (UIntPtr)m_Chunk;
+            long chunkHiHash = ((long)chunkAddr) >> 15;
+            int chunkHash = (int)chunkHiHash;
             return chunkHash;
         }
 
@@ -148,7 +148,7 @@ namespace Unity.Entities
 
     [NativeContainer]
     public unsafe struct BufferAccessor<T>
-        where T: struct, IBufferElementData
+        where T : struct, IBufferElementData
     {
         [NativeDisableUnsafePtrRestriction]
         private byte* m_BasePointer;
@@ -194,37 +194,13 @@ namespace Unity.Entities
                 if (index < 0 || index >= Length)
                     throw new InvalidOperationException($"index {index} out of range in LowLevelBufferAccessor of length {Length}");
 #endif
-                BufferHeader* hdr = (BufferHeader*) (m_BasePointer + index * m_Stride);
+                BufferHeader* hdr = (BufferHeader*)(m_BasePointer + index * m_Stride);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 return new DynamicBuffer<T>(hdr, m_Safety);
 #else
                 return new DynamicBuffer<T>(hdr);
 #endif
-            }
-        }
-    }
-
-    [BurstCompile]
-    unsafe struct GatherChunks : IJobParallelFor
-    {
-        [ReadOnly] public NativeList<EntityArchetype> Archetypes;
-        [ReadOnly] public NativeArray<int> Offsets;
-        [NativeDisableParallelForRestriction]
-        public NativeArray<ArchetypeChunk> Chunks;
-
-        public void Execute(int index)
-        {
-            var archetype = Archetypes[index];
-            var chunkCount = archetype.Archetype->ChunkCount;
-            var chunk = (Chunk*) archetype.Archetype->ChunkList.Begin;
-            var offset = Offsets[index];
-            var dstChunksPtr = (Chunk**) Chunks.GetUnsafePtr();
-            
-            for (int j = 0; j < chunkCount; j++)
-            {
-                dstChunksPtr[offset + j] = chunk;
-                chunk = (Chunk*)chunk->ChunkListNode.Next;
             }
         }
     }
@@ -245,17 +221,24 @@ namespace Unity.Entities
                 offsets[i] = length;
                 length += archetypes[i].Archetype->ChunkCount;
             }
-            
+
             var chunks = new NativeArray<ArchetypeChunk>(length, allocator, NativeArrayOptions.UninitializedMemory);
-            var gatherChunksJob = new GatherChunks
+
+            for (int index = 0; index < archetypeCount; index++)
             {
-                Archetypes = archetypes,
-                Offsets = offsets,
-                Chunks = chunks
-            };
-            var gatherChunksJobHandle = gatherChunksJob.Schedule(archetypeCount,1);
-            gatherChunksJobHandle.Complete();
-            
+                var archetype = archetypes[index];
+                var chunkCount = archetype.Archetype->ChunkCount;
+                var chunk = (Chunk*)archetype.Archetype->ChunkList.Begin;
+                var offset = offsets[index];
+                var dstChunksPtr = (Chunk**)chunks.GetUnsafePtr();
+
+                for (int j = 0; j < chunkCount; j++)
+                {
+                    dstChunksPtr[offset + j] = chunk;
+                    chunk = (Chunk*)chunk->ChunkListNode.Next;
+                }
+            }
+
             offsets.Dispose();
             return chunks;
         }
