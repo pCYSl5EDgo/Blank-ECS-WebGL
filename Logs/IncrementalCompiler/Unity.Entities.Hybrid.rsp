@@ -6,6 +6,8 @@
 -nostdlib
 -unsafe
 -r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Entities.dll"
+-r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Collections.dll"
+-r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Jobs.dll"
 -r:"C:\Program Files\Unity\Hub\Editor\2018.2.6f1\Editor\Data\Managed/UnityEngine/UnityEngine.dll"
 -r:"C:\Program Files\Unity\Hub\Editor\2018.2.6f1\Editor\Data\Managed/UnityEngine/UnityEngine.AIModule.dll"
 -r:"C:\Program Files\Unity\Hub\Editor\2018.2.6f1\Editor\Data\Managed/UnityEngine/UnityEngine.ARModule.dll"
@@ -68,8 +70,6 @@
 -r:"C:\Program Files\Unity\Hub\Editor\2018.2.6f1\Editor\Data\Managed/UnityEngine/UnityEngine.XRModule.dll"
 -r:"C:\Program Files\Unity\Hub\Editor\2018.2.6f1\Editor\Data\Managed/UnityEditor.dll"
 -r:"C:\Program Files\Unity\Hub\Editor\2018.2.6f1\Editor\Data\Managed/Unity.Locator.dll"
--r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Collections.dll"
--r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Jobs.dll"
 -r:"C:/Program Files/Unity/Hub/Editor/2018.2.6f1/Editor/Data/UnityExtensions/Unity/GUISystem/UnityEngine.UI.dll"
 -r:"C:/Program Files/Unity/Hub/Editor/2018.2.6f1/Editor/Data/UnityExtensions/Unity/GUISystem/Editor/UnityEditor.UI.dll"
 -r:"C:/Program Files/Unity/Hub/Editor/2018.2.6f1/Editor/Data/UnityExtensions/Unity/Timeline/RuntimeEditor/UnityEngine.Timeline.dll"

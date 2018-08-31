@@ -154,12 +154,7 @@ namespace Unity.Transforms
 
         void RemoveChildTree(Entity parentEntity, Entity childEntity)
         {
-            NativeMultiHashMapIterator<Entity> it;
-            Entity foundChild;
-            if (!ParentToChildTree.TryGetFirstValue(parentEntity, out foundChild, out it))
-            {
-                return;
-            }
+            if (!ParentToChildTree.TryGetFirstValue(parentEntity, out var foundChild, out var it)) return;
 
             do
             {
@@ -177,8 +172,7 @@ namespace Unity.Transforms
         {
             try
             {
-                if (NewRootChunks.Length == 0)
-                    return;
+                if (NewRootChunks.Length == 0) return;
 
                 for (int chunkIndex = 0; chunkIndex < NewRootChunks.Length; chunkIndex++)
                 {
@@ -968,83 +962,98 @@ namespace Unity.Transforms
 
         void GatherQueries()
         {
+            var _Parent = ComponentType.ReadOnly<Parent>();
+            var _Rotation = ComponentType.ReadOnly<Rotation>();
+            var _Position = ComponentType.ReadOnly<Position>();
+            var _Scale = ComponentType.ReadOnly<Scale>();
+            var _Frozen = ComponentType.ReadOnly<Frozen>();
+            var _Depth = ComponentType.Create<Depth>();
+            var _LocalToWorld = ComponentType.Create<LocalToWorld>();
+            var _Static = ComponentType.ReadOnly<Static>();
+            var _PendingFrozen = ComponentType.ReadOnly<PendingFrozen>();
+            var _LocalToParent = ComponentType.Create<LocalToParent>();
+            var componentTypes0_RPS = new[] { _Rotation, _Position, _Scale };
+            var componentTypes1_PendF = new[] { _PendingFrozen, _Frozen };
+            var componentTypes2_F = new[] { _Frozen };
+            var componentTypes3_L2P = new[] { _LocalToParent, _Parent };
+            var componentTypes_Empty = Array.Empty<ComponentType>();
             NewRootQuery = new EntityArchetypeQuery
             {
-                Any = new ComponentType[] { typeof(Rotation), typeof(Position), typeof(Scale) },
-                None = new ComponentType[] { typeof(Frozen), typeof(Parent), typeof(LocalToWorld), typeof(Depth) },
-                All = Array.Empty<ComponentType>(),
+                Any = componentTypes0_RPS,
+                None = new[] { _Frozen, _Parent, _LocalToWorld, _Depth },
+                All = componentTypes_Empty,
             };
             AttachQuery = new EntityArchetypeQuery
             {
-                Any = Array.Empty<ComponentType>(),
-                None = Array.Empty<ComponentType>(),
-                All = new ComponentType[] { typeof(Attach) },
+                Any = componentTypes_Empty,
+                None = componentTypes_Empty,
+                All = new[] { ComponentType.ReadOnly<Attach>() },
             };
             DetachQuery = new EntityArchetypeQuery
             {
-                Any = Array.Empty<ComponentType>(),
-                None = new ComponentType[] { typeof(Attached) },
-                All = new ComponentType[] { typeof(Parent) },
+                Any = componentTypes_Empty,
+                None = new[] { ComponentType.ReadOnly<Attached>() },
+                All = new[] { _Parent },
             };
             RemovedQuery = new EntityArchetypeQuery
             {
-                Any = Array.Empty<ComponentType>(),
-                None = new ComponentType[] { typeof(Rotation), typeof(Position), typeof(Scale) },
-                All = new ComponentType[] { typeof(LocalToWorld) },
+                Any = componentTypes_Empty,
+                None = componentTypes0_RPS,
+                All = new[] { _LocalToWorld },
             };
             PendingFrozenQuery = new EntityArchetypeQuery
             {
-                Any = Array.Empty<ComponentType>(),
-                None = new ComponentType[] { typeof(Frozen) },
-                All = new ComponentType[] { typeof(LocalToWorld), typeof(Static), typeof(PendingFrozen) },
+                Any = componentTypes_Empty,
+                None = componentTypes2_F,
+                All = new[] { _LocalToWorld, _Static, _PendingFrozen },
             };
             FrozenQuery = new EntityArchetypeQuery
             {
-                Any = Array.Empty<ComponentType>(),
-                None = new ComponentType[] { typeof(PendingFrozen), typeof(Frozen) },
-                All = new ComponentType[] { typeof(LocalToWorld), typeof(Static) },
+                Any = componentTypes_Empty,
+                None = componentTypes1_PendF,
+                All = new[] { _LocalToWorld, _Static },
             };
             ThawQuery = new EntityArchetypeQuery
             {
-                Any = new ComponentType[] { typeof(PendingFrozen), typeof(Frozen) },
-                None = new ComponentType[] { typeof(Static) },
-                All = Array.Empty<ComponentType>(),
+                Any = componentTypes1_PendF,
+                None = new[] { _Static },
+                All = componentTypes_Empty,
             };
             RootLocalToWorldQuery = new EntityArchetypeQuery
             {
-                Any = new ComponentType[] { typeof(Rotation), typeof(Position), typeof(Scale) },
-                None = new ComponentType[] { typeof(Frozen), typeof(Parent) },
-                All = new ComponentType[] { typeof(LocalToWorld) },
+                Any = componentTypes0_RPS,
+                None = new[] { _Frozen, _Parent },
+                All = new[] { _LocalToWorld },
             };
             InnerTreeLocalToParentQuery = new EntityArchetypeQuery
             {
-                Any = new ComponentType[] { typeof(Rotation), typeof(Position), typeof(Scale) },
-                None = new ComponentType[] { typeof(Frozen) },
-                All = new ComponentType[] { typeof(LocalToParent), typeof(Parent) },
+                Any = componentTypes0_RPS,
+                None = componentTypes2_F,
+                All = componentTypes3_L2P,
             };
             LeafLocalToParentQuery = new EntityArchetypeQuery
             {
-                Any = new ComponentType[] { typeof(Rotation), typeof(Position), typeof(Scale) },
-                None = new ComponentType[] { typeof(Frozen) },
-                All = new ComponentType[] { typeof(LocalToParent), typeof(Parent) },
+                Any = componentTypes0_RPS,
+                None = componentTypes2_F,
+                All = componentTypes3_L2P,
             };
             InnerTreeLocalToWorldQuery = new EntityArchetypeQuery
             {
-                Any = Array.Empty<ComponentType>(),
-                None = new ComponentType[] { typeof(Frozen) },
-                All = new ComponentType[] { typeof(Depth), typeof(LocalToParent), typeof(Parent), typeof(LocalToWorld) },
+                Any = componentTypes_Empty,
+                None = componentTypes2_F,
+                All = new[] { _Depth, _LocalToParent, _Parent, _LocalToWorld },
             };
             LeafLocalToWorldQuery = new EntityArchetypeQuery
             {
-                Any = new ComponentType[] { typeof(Rotation), typeof(Position), typeof(Scale) },
-                None = new ComponentType[] { typeof(Frozen), typeof(Depth) },
-                All = new ComponentType[] { typeof(LocalToParent), typeof(Parent) },
+                Any = componentTypes0_RPS,
+                None = new[] { _Frozen, _Depth },
+                All = componentTypes3_L2P,
             };
             DepthQuery = new EntityArchetypeQuery
             {
-                Any = Array.Empty<ComponentType>(),
-                None = Array.Empty<ComponentType>(),
-                All = new ComponentType[] { typeof(Depth), typeof(Parent) },
+                Any = componentTypes_Empty,
+                None = componentTypes_Empty,
+                All = new[] { _Depth, _Parent },
             };
         }
 

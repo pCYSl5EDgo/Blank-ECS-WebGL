@@ -5,10 +5,6 @@
 -out:"C:/Users/I/Saved Games/Blank ECS/Temp/Assembly-CSharp.dll"
 -nostdlib
 -unsafe
--r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Entities.Properties.dll"
--r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Entities.Editor.dll"
--r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Rendering.Hybrid.dll"
--r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Transforms.dll"
 -r:"C:\Program Files\Unity\Hub\Editor\2018.2.6f1\Editor\Data\Managed/UnityEngine/UnityEngine.dll"
 -r:"C:\Program Files\Unity\Hub\Editor\2018.2.6f1\Editor\Data\Managed/UnityEngine/UnityEngine.AIModule.dll"
 -r:"C:\Program Files\Unity\Hub\Editor\2018.2.6f1\Editor\Data\Managed/UnityEngine/UnityEngine.ARModule.dll"
@@ -77,10 +73,14 @@
 -r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Properties.dll"
 -r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Collections.dll"
 -r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Entities.dll"
+-r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Entities.Properties.dll"
 -r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/UnityEditor.StandardEvents.dll"
 -r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.TextMeshPro.Editor.dll"
 -r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Burst.dll"
+-r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Entities.Editor.dll"
 -r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.PackageManagerUI.Editor.dll"
+-r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Rendering.Hybrid.dll"
+-r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Transforms.dll"
 -r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Mathematics.dll"
 -r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Entities.Hybrid.dll"
 -r:"C:/Users/I/Saved Games/Blank ECS/Library/ScriptAssemblies/Unity.Burst.Editor.dll"
@@ -292,6 +292,7 @@
 -d:ENABLE_BURST_AOT
 -d:UNITY_TEAM_LICENSE
 -d:UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP
+-i:"C:/Users/I/Saved Games/Blank ECS/Assets/MyFolder/Scripts/CountUpSystem.cs"
 -i:"C:/Users/I/Saved Games/Blank ECS/Assets/MyFolder/Scripts/Manager.cs"
 @Assets\mcs.rsp
 -v:0
