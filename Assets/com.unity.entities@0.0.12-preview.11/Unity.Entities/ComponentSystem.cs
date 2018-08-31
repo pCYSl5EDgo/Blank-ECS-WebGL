@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Reflection;
 using Unity.Collections;
-using Unity.Jobs;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs.LowLevel.Unsafe;
 using System.Collections.Generic;
 
 namespace Unity.Entities
@@ -282,7 +279,7 @@ namespace Unity.Entities
         unsafe void BeforeOnUpdate()
         {
             BeforeUpdateVersioning();
-            CompleteDependencyInternal();
+            // CompleteDependencyInternal();
             UpdateInjectedComponentGroups();
 
             m_DeferredEntities = new EntityCommandBuffer(Allocator.Temp);
@@ -292,7 +289,7 @@ namespace Unity.Entities
         {
             AfterUpdateVersioning();
 
-            JobHandle.ScheduleBatchedJobs();
+            // JobHandle.ScheduleBatchedJobs();
 
             m_DeferredEntities.Playback(EntityManager);
             m_DeferredEntities.Dispose();
@@ -349,8 +346,6 @@ namespace Unity.Entities
 #else
         private NativeList<EntityCommandBuffer> m_PendingBuffers;
 #endif
-        private JobHandle m_ProducerHandle;
-
         public EntityCommandBuffer CreateCommandBuffer()
         {
             var cmds = new EntityCommandBuffer(Allocator.Temp);
@@ -358,11 +353,6 @@ namespace Unity.Entities
             m_PendingBuffers.Add(cmds);
 
             return cmds;
-        }
-
-        internal void AddJobHandleForProducer(JobHandle foo)
-        {
-            m_ProducerHandle = JobHandle.CombineDependencies(m_ProducerHandle, foo);
         }
 
         protected override void OnCreateManager(int capacity)
@@ -396,21 +386,15 @@ namespace Unity.Entities
 
         private void FlushBuffers(bool playBack)
         {
-            m_ProducerHandle.Complete();
-            m_ProducerHandle = new JobHandle();
-
-            int length;
+            int length = m_PendingBuffers.
 #if ENABLE_UNITY_COLLECTIONS_CHECKS	
-            length = m_PendingBuffers.Count;
+             Count;
 #else
-            length = m_PendingBuffers.Length;	
+             Length;
 #endif
             for (int i = 0; i < length; ++i)
             {
-                if (playBack)
-                {
-                    m_PendingBuffers[i].Playback(EntityManager);
-                }
+                if (playBack) m_PendingBuffers[i].Playback(EntityManager);
                 m_PendingBuffers[i].Dispose();
             }
         }

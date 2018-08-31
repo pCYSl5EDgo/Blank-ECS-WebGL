@@ -1,9 +1,7 @@
 ﻿using System;
-using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
-using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
@@ -19,14 +17,14 @@ namespace Unity.Rendering
         public float4x4 Value;
     };
 
-    struct FrustumPlanes
+    readonly struct FrustumPlanes
     {
-        public float4 Left;
-        public float4 Right;
-        public float4 Down;
-        public float4 Up;
-        public float4 Near;
-        public float4 Far;
+        public readonly float4 Left;
+        public readonly float4 Right;
+        public readonly float4 Down;
+        public readonly float4 Up;
+        public readonly float4 Near;
+        public readonly float4 Far;
 
         public enum InsideResult
         {
@@ -46,7 +44,7 @@ namespace Unity.Rendering
             Far = new float4(sourcePlanes[5].normal.x, sourcePlanes[5].normal.y, sourcePlanes[5].normal.z, sourcePlanes[5].distance);
         }
 
-        public InsideResult Inside(WorldMeshRenderBounds bounds)
+        public InsideResult Inside(in WorldMeshRenderBounds bounds)
         {
             var center = new float4(bounds.Center.x, bounds.Center.y, bounds.Center.z, 1.0f);
 
@@ -86,8 +84,10 @@ namespace Unity.Rendering
     /// Renders all Entities containing both MeshInstanceRenderer & LocalToWorld components.
     /// </summary>
     [ExecuteInEditMode]
-    public class MeshInstanceRendererSystem : ComponentSystem
+    public sealed class MeshInstanceRendererSystem : ComponentSystem
     {
+        public MeshInstanceRendererSystem(Camera activeCamera) => ActiveCamera = activeCamera;
+        public MeshInstanceRendererSystem() { }
         public Camera ActiveCamera;
 
         private int m_LastVisibleLocalToWorldOrderVersion = -1;
@@ -98,7 +98,7 @@ namespace Unity.Rendering
         private NativeArray<WorldMeshRenderBounds> m_ChunkBounds;
 
         // Instance renderer takes only batches of 1023
-        Matrix4x4[] m_MatricesArray = new Matrix4x4[1023];
+        readonly Matrix4x4[] m_MatricesArray = new Matrix4x4[1023];
         private FrustumPlanes m_Planes;
         uint m_LastGlobalSystemVersion = 0;
 
@@ -146,10 +146,7 @@ namespace Unity.Rendering
 
         unsafe void UpdateInstanceRenderer()
         {
-            if (m_Chunks.Length == 0)
-            {
-                return;
-            }
+            if (m_Chunks.Length == 0) return;
 
             Profiler.BeginSample("Gather Types");
             var sharedComponentCount = EntityManager.GetSharedComponentCount();
@@ -169,13 +166,9 @@ namespace Unity.Rendering
             Profiler.EndSample();
             try
             {
-                float4x4* GetVisibleOutputBuffer(ArchetypeChunk chunk)
-                {
-                    var chunkVisibleLocalToWorld = chunk.GetNativeArray(visibleLocalToWorldType);
-                    return (float4x4*)chunkVisibleLocalToWorld.GetUnsafePtr();
-                }
+                float4x4* GetVisibleOutputBuffer(ref ArchetypeChunk chunk) => (float4x4*)chunk.GetNativeArray(visibleLocalToWorldType).GetUnsafePtr();
 
-                float4x4* GetLocalToWorldSourceBuffer(ArchetypeChunk chunk)
+                float4x4* GetLocalToWorldSourceBuffer(ref ArchetypeChunk chunk)
                 {
                     var chunkCustomLocalToWorld = chunk.GetNativeArray(customLocalToWorldType);
                     var chunkLocalToWorld = chunk.GetNativeArray(localToWorldType);
@@ -196,21 +189,11 @@ namespace Unity.Rendering
                     var chunkLODs = chunk.GetNativeArray(meshLODComponentType);
                     var hasMeshLODComponentType = chunkLODs.Length > 0;
 
-                    float4x4* dstPtr = GetVisibleOutputBuffer(chunk);
-                    float4x4* srcPtr = GetLocalToWorldSourceBuffer(chunk);
-                    if (srcPtr == null)
-                        return;
+                    var srcPtr = GetLocalToWorldSourceBuffer(ref chunk);
+                    if (srcPtr == null) return;
+                    var dstPtr = GetVisibleOutputBuffer(ref chunk);
 
-                    if (!hasMeshLODComponentType)
-                    {
-                        for (int i = 0; i < chunkEntityCount; i++)
-                        {
-                            UnsafeUtility.MemCpy(dstPtr + chunkVisibleCount_ + i, srcPtr + i, UnsafeUtility.SizeOf<float4x4>());
-                        }
-
-                        chunkVisibleCount_ = chunkEntityCount;
-                    }
-                    else
+                    if (hasMeshLODComponentType)
                     {
                         for (int i = 0; i < chunkEntityCount; i++)
                         {
@@ -222,6 +205,12 @@ namespace Unity.Rendering
                                 chunkVisibleCount_++;
                             }
                         }
+                    }
+                    else
+                    {
+                        for (int i = 0; i < chunkEntityCount; i++)
+                            UnsafeUtility.MemCpy(dstPtr + chunkVisibleCount_ + i, srcPtr + i, UnsafeUtility.SizeOf<float4x4>());
+                        chunkVisibleCount_ = chunkEntityCount;
                     }
 
                     chunkVisibleCount[index] = chunkVisibleCount_;
@@ -237,19 +226,15 @@ namespace Unity.Rendering
                     var hasMeshLODComponentType = chunkLODs.Length > 0;
                     var hasWorldMeshRenderBounds = chunkBounds.Length > 0;
 
-                    float4x4* dstPtr = GetVisibleOutputBuffer(chunk);
-                    float4x4* srcPtr = GetLocalToWorldSourceBuffer(chunk);
-                    if (srcPtr == null)
-                        return;
+                    var srcPtr = GetLocalToWorldSourceBuffer(ref chunk);
+                    if (srcPtr == null) return;
+                    var dstPtr = GetVisibleOutputBuffer(ref chunk);
 
                     // 00 (-WorldMeshRenderBounds -MeshLODComponentType)
                     if ((!hasWorldMeshRenderBounds) && (!hasMeshLODComponentType))
                     {
                         for (int i = 0; i < chunkEntityCount; i++)
-                        {
                             UnsafeUtility.MemCpy(dstPtr + chunkVisibleCount_ + i, srcPtr + i, UnsafeUtility.SizeOf<float4x4>());
-                        }
-
                         chunkVisibleCount_ = chunkEntityCount;
                     }
                     // 01 (-WorldMeshRenderBounds +MeshLODComponentType)
@@ -258,12 +243,9 @@ namespace Unity.Rendering
                         for (int i = 0; i < chunkEntityCount; i++)
                         {
                             var instanceLOD = chunkLODs[i];
-                            var instanceLODValid = (activeLODGroupMask[instanceLOD.Group].LODMask & instanceLOD.LODMask) != 0;
-                            if (instanceLODValid)
-                            {
-                                UnsafeUtility.MemCpy(dstPtr + chunkVisibleCount_, srcPtr + i, UnsafeUtility.SizeOf<float4x4>());
-                                chunkVisibleCount_++;
-                            }
+                            if ((activeLODGroupMask[instanceLOD.Group].LODMask & instanceLOD.LODMask) == 0) continue;
+                            UnsafeUtility.MemCpy(dstPtr + chunkVisibleCount_, srcPtr + i, UnsafeUtility.SizeOf<float4x4>());
+                            chunkVisibleCount_++;
                         }
                     }
                     // 10 (+WorldMeshRenderBounds -MeshLODComponentType)
@@ -272,63 +254,40 @@ namespace Unity.Rendering
                         for (int i = 0; i < chunkEntityCount; i++)
                         {
                             var instanceBounds = chunkBounds[i];
-                            var instanceCullValid = (m_Planes.Inside(instanceBounds) != FrustumPlanes.InsideResult.Out);
-
-                            if (instanceCullValid)
-                            {
-                                UnsafeUtility.MemCpy(dstPtr + chunkVisibleCount_, srcPtr + i, UnsafeUtility.SizeOf<float4x4>());
-                                chunkVisibleCount_++;
-                            }
+                            if (m_Planes.Inside(instanceBounds) == FrustumPlanes.InsideResult.Out) continue;
+                            UnsafeUtility.MemCpy(dstPtr + chunkVisibleCount_, srcPtr + i, UnsafeUtility.SizeOf<float4x4>());
+                            chunkVisibleCount_++;
                         }
                     }
                     // 11 (+WorldMeshRenderBounds +MeshLODComponentType)
                     else
                     {
-
                         for (int i = 0; i < chunkEntityCount; i++)
                         {
                             var instanceLOD = chunkLODs[i];
-                            var instanceLODValid = (activeLODGroupMask[instanceLOD.Group].LODMask & instanceLOD.LODMask) != 0;
-                            if (instanceLODValid)
-                            {
-                                var instanceBounds = chunkBounds[i];
-                                var instanceCullValid = (m_Planes.Inside(instanceBounds) != FrustumPlanes.InsideResult.Out);
-                                if (instanceCullValid)
-                                {
-                                    UnsafeUtility.MemCpy(dstPtr + chunkVisibleCount_, srcPtr + i, UnsafeUtility.SizeOf<float4x4>());
-                                    chunkVisibleCount_++;
-                                }
-                            }
+                            if ((activeLODGroupMask[instanceLOD.Group].LODMask & instanceLOD.LODMask) == 0 || m_Planes.Inside(chunkBounds[i]) == FrustumPlanes.InsideResult.Out)
+                                continue;
+                            UnsafeUtility.MemCpy(dstPtr + chunkVisibleCount_, srcPtr + i, UnsafeUtility.SizeOf<float4x4>());
+                            chunkVisibleCount_++;
                         }
                     }
-
                     chunkVisibleCount[index] = chunkVisibleCount_;
                 }
                 for (int index = 0; index < m_Chunks.Length; index++)
                 {
-                    var chunk = m_Chunks[index];
-
-                    var hasWorldMeshRenderBounds = chunk.GetNativeArray(worldMeshRenderBoundsType).Length > 0;
-                    if (!hasWorldMeshRenderBounds)
+                    if (m_Chunks[index].GetNativeArray(worldMeshRenderBoundsType).Length <= 0)
                     {
                         VisibleIn(index);
-                        return;
+                        continue;
                     }
 
-                    var chunkBounds = m_ChunkBounds[index];
-                    var chunkInsideResult = m_Planes.Inside(chunkBounds);
+                    var chunkInsideResult = m_Planes.Inside(m_ChunkBounds[index]);
                     if (chunkInsideResult == FrustumPlanes.InsideResult.Out)
-                    {
                         chunkVisibleCount[index] = 0;
-                    }
                     else if (chunkInsideResult == FrustumPlanes.InsideResult.In)
-                    {
                         VisibleIn(index);
-                    }
                     else
-                    {
                         VisiblePartial(index);
-                    }
                 }
 
                 var packedChunkCount = 0;
@@ -529,19 +488,17 @@ namespace Unity.Rendering
 
         protected override void OnUpdate()
         {
-            if (ActiveCamera != null)
-            {
-                m_Planes = new FrustumPlanes(ActiveCamera);
+            if (ActiveCamera == null) return;
+            m_Planes = new FrustumPlanes(ActiveCamera);
 
-                UpdateMissingVisibleLocalToWorld();
-                UpdateChunkCache();
+            UpdateMissingVisibleLocalToWorld();
+            UpdateChunkCache();
 
-                Profiler.BeginSample("UpdateInstanceRenderer");
-                UpdateInstanceRenderer();
-                Profiler.EndSample();
+            Profiler.BeginSample("UpdateInstanceRenderer");
+            UpdateInstanceRenderer();
+            Profiler.EndSample();
 
-                m_LastGlobalSystemVersion = GlobalSystemVersion;
-            }
+            m_LastGlobalSystemVersion = GlobalSystemVersion;
         }
     }
 }

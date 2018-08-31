@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
@@ -13,9 +12,10 @@ namespace Unity.Transforms
     /// Parent is added to child by system when Attached is resolved.
     /// Read-only from other systems.
     /// </summary>
-    public struct Parent : ISystemStateComponentData
+    public readonly struct Parent : ISystemStateComponentData
     {
-        public Entity Value;
+        public Parent(Entity value) => Value = value;
+        public readonly Entity Value;
     }
 
     /// <summary>
@@ -23,7 +23,7 @@ namespace Unity.Transforms
     /// Signals that LocalToWorld will no longer be updated.
     /// Read-only from other systems.
     /// </summary>
-    public struct Frozen : ISystemStateComponentData
+    public readonly struct Frozen : ISystemStateComponentData
     {
     }
 
@@ -33,7 +33,7 @@ namespace Unity.Transforms
     /// before it is Frozen.
     /// Not intended for use in other systems.
     /// </summary>
-    struct PendingFrozen : ISystemStateComponentData
+    readonly struct PendingFrozen : ISystemStateComponentData
     {
     }
 
@@ -42,9 +42,10 @@ namespace Unity.Transforms
     /// is processed bredth-first.
     /// Read-only from external systems.
     /// </summary>
-    public struct Depth : ISystemStateSharedComponentData
+    public readonly struct Depth : ISystemStateSharedComponentData
     {
-        public int Value;
+        public Depth(int value) => Value = value;
+        public readonly int Value;
     }
 
     /// <summary>
@@ -72,7 +73,7 @@ namespace Unity.Transforms
     /// </summary>
     [UnityEngine.ExecuteInEditMode]
     [UpdateBefore(typeof(EndFrameBarrier))]
-    public class EndFrameTransformSystem : TransformSystem<EndFrameBarrier>
+    public sealed class EndFrameTransformSystem : TransformSystem<EndFrameBarrier>
     {
     }
 
@@ -168,7 +169,7 @@ namespace Unity.Transforms
             throw new System.InvalidOperationException(string.Format("Parent not found in Hierarchy hashmap"));
         }
 
-        void UpdateNewRootTransforms(EntityCommandBuffer entityCommandBuffer)
+        void UpdateNewRootTransforms()
         {
             try
             {
@@ -182,22 +183,17 @@ namespace Unity.Transforms
                     var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
 
                     for (int i = 0; i < parentCount; i++)
-                    {
-                        var entity = chunkEntities[i];
-
-                        entityCommandBuffer.AddComponent(entity, new LocalToWorld { Value = float4x4.identity });
-                    }
+                        PostUpdateCommands.AddComponent(chunkEntities[i], new LocalToWorld { Value = float4x4.identity });
                 }
             }
             finally { NewRootChunks.Dispose(); }
         }
 
-        bool UpdateAttach(EntityCommandBuffer entityCommandBuffer)
+        bool UpdateAttach()
         {
             try
             {
-                if (AttachChunks.Length == 0)
-                    return false;
+                if (AttachChunks.Length == 0) return false;
 
                 for (int chunkIndex = 0; chunkIndex < AttachChunks.Length; chunkIndex++)
                 {
@@ -221,29 +217,25 @@ namespace Unity.Transforms
                             {
                                 RemoveChildTree(previousParentEntity, childEntity);
                                 if (!IsChildTree(previousParentEntity))
-                                {
-                                    entityCommandBuffer.RemoveComponent<Depth>(previousParentEntity);
-                                }
+                                    PostUpdateCommands.RemoveComponent<Depth>(previousParentEntity);
                             }
 
-                            ParentFromEntityRW[childEntity] = new Parent { Value = parentEntity };
+                            ParentFromEntityRW[childEntity] = new Parent(parentEntity);
                         }
                         else
                         {
-                            entityCommandBuffer.AddComponent(childEntity, new Parent { Value = parentEntity });
-                            entityCommandBuffer.AddComponent(childEntity, new Attached());
-                            entityCommandBuffer.AddComponent(childEntity, new LocalToParent { Value = float4x4.identity });
+                            PostUpdateCommands.AddComponent(childEntity, new Parent(parentEntity));
+                            PostUpdateCommands.AddComponent(childEntity, new Attached());
+                            PostUpdateCommands.AddComponent(childEntity, new LocalToParent { Value = float4x4.identity });
                         }
 
                         // parent wasn't previously a tree, so doesn't have depth
                         if (!IsChildTree(parentEntity))
-                        {
-                            entityCommandBuffer.AddSharedComponent(parentEntity, new Depth { Value = 0 });
-                        }
+                            PostUpdateCommands.AddSharedComponent(parentEntity, new Depth(0));
 
                         AddChildTree(parentEntity, childEntity);
 
-                        entityCommandBuffer.DestroyEntity(entities[i]);
+                        PostUpdateCommands.DestroyEntity(entities[i]);
                     }
                 }
 
@@ -252,12 +244,11 @@ namespace Unity.Transforms
             finally { AttachChunks.Dispose(); }
         }
 
-        bool UpdateDetach(EntityCommandBuffer entityCommandBuffer)
+        bool UpdateDetach()
         {
             try
             {
-                if (DetachChunks.Length == 0)
-                    return false;
+                if (DetachChunks.Length == 0) return false;
 
                 for (int chunkIndex = 0; chunkIndex < DetachChunks.Length; chunkIndex++)
                 {
@@ -277,22 +268,19 @@ namespace Unity.Transforms
                             RemoveChildTree(parentEntity, entity);
 
                             if (!IsChildTree(parentEntity))
-                            {
-                                entityCommandBuffer.RemoveComponent<Depth>(parentEntity);
-                            }
+                                PostUpdateCommands.RemoveComponent<Depth>(parentEntity);
                         }
 
-                        entityCommandBuffer.RemoveComponent<LocalToParent>(entity);
-                        entityCommandBuffer.RemoveComponent<Parent>(entity);
+                        PostUpdateCommands.RemoveComponent<LocalToParent>(entity);
+                        PostUpdateCommands.RemoveComponent<Parent>(entity);
                     }
                 }
-
                 return true;
             }
             finally { DetachChunks.Dispose(); }
         }
 
-        void UpdateRemoved(EntityCommandBuffer entityCommandBuffer)
+        void UpdateRemoved()
         {
             try
             {
@@ -306,11 +294,7 @@ namespace Unity.Transforms
                     var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
 
                     for (int i = 0; i < parentCount; i++)
-                    {
-                        var entity = chunkEntities[i];
-
-                        entityCommandBuffer.RemoveComponent<LocalToWorld>(entity);
-                    }
+                        PostUpdateCommands.RemoveComponent<LocalToWorld>(chunkEntities[i]);
                 }
             }
             finally { RemovedChunks.Dispose(); }
@@ -403,18 +387,17 @@ namespace Unity.Transforms
         private static readonly ProfilerMarker k_ProfileUpdateUpdateRemoved = new ProfilerMarker("UpdateRemoved");
         bool UpdateDAG()
         {
-            bool changedAttached, changedDetached;
             k_ProfileUpdateNewRootTransforms.Begin();
-            UpdateNewRootTransforms(PostUpdateCommands);
+            UpdateNewRootTransforms();
             k_ProfileUpdateNewRootTransforms.End();
 
             k_ProfileUpdateDAGAttachDetach.Begin();
-            changedAttached = UpdateAttach(PostUpdateCommands);
-            changedDetached = UpdateDetach(PostUpdateCommands);
+            var changedAttached = UpdateAttach();
+            var changedDetached = UpdateDetach();
             k_ProfileUpdateDAGAttachDetach.End();
 
             k_ProfileUpdateUpdateRemoved.Begin();
-            UpdateRemoved(PostUpdateCommands);
+            UpdateRemoved();
             k_ProfileUpdateUpdateRemoved.End();
 
             return changedAttached || changedDetached;
@@ -887,7 +870,6 @@ namespace Unity.Transforms
         int ParentCount(Entity entity) => EntityManager.HasComponent<Parent>(entity) ? 1 + ParentCount(ParentFromEntityRO[entity].Value) : 0;
 
         private static readonly ProfilerMarker k_ProfileUpdateDepthChunks = new ProfilerMarker("UpdateDepth.Chunks");
-        private static readonly ProfilerMarker k_ProfileUpdateDepthPlayback = new ProfilerMarker("UpdateDepth.Playback");
 
         void UpdateDepth()
         {
@@ -899,23 +881,19 @@ namespace Unity.Transforms
                 for (int i = 0; i < DepthChunks.Length; i++)
                 {
                     var chunk = DepthChunks[i];
-                    var entityCount = chunk.Count;
                     var parents = chunk.GetNativeArray(ParentTypeRO);
                     var entities = chunk.GetNativeArray(EntityTypeRO);
-                    for (int j = 0; j < entityCount; j++)
+                    for (int j = 0, entityCount = chunk.Count; j < entityCount; j++)
                     {
                         var entity = entities[j];
                         var parentEntity = parents[j].Value;
                         var parentCount = 1 + ParentCount(parentEntity);
-                        PostUpdateCommands.SetSharedComponent(entity, new Depth { Value = parentCount });
+                        PostUpdateCommands.SetSharedComponent(entity, new Depth(parentCount));
                     }
                 }
                 k_ProfileUpdateDepthChunks.End();
             }
-            finally
-            {
-                DepthChunks.Dispose();
-            }
+            finally { DepthChunks.Dispose(); }
         }
 
         void GatherQueries()
@@ -1102,9 +1080,7 @@ namespace Unity.Transforms
                 }
 
                 using (k_ProfileUpdateDepth.Auto())
-                {
                     UpdateDepth();
-                }
             }
 
             using (k_ProfileGatherFrozenChunks.Auto())

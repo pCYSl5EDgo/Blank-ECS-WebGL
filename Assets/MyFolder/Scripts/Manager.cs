@@ -47,7 +47,7 @@ public class Manager : MonoBehaviour
     void Update()
     {
         // Graphics.DrawMesh(render.mesh, matrices[0], render.material, 0, null, 0, null, render.castShadows, render.receiveShadows, null, false);
-        Graphics.DrawMeshInstanced(render.mesh, 0, render.material, matrices, matrices.Length, null, render.castShadows, render.receiveShadows, 0, null, LightProbeUsage.Off, null);
+        // Graphics.DrawMeshInstanced(render.mesh, 0, render.material, matrices, matrices.Length, null, render.castShadows, render.receiveShadows, 0, null, LightProbeUsage.Off, null);
         if (!Input.GetMouseButton(0)) return;
         var e = manager.CreateEntity(archetype);
         manager.SetComponentData(e, new Position
