@@ -36,7 +36,7 @@ public class Manager : MonoBehaviour
         ScriptBehaviourUpdateOrder.UpdatePlayerLoop(world);
 
         manager = world.GetExistingManager<EntityManager>();
-        archetype = manager.CreateArchetype(ComponentType.Create<Position>(), ComponentType.Create<MeshInstanceRenderer>());
+        archetype = manager.CreateArchetype(ComponentType.Create<Position>(), ComponentType.Create<MeshInstanceRenderer>(), ComponentType.Create<Static>());
     }
 
     Matrix4x4[] matrices = new Matrix4x4[1]{

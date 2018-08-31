@@ -322,24 +322,20 @@ namespace Unity.Transforms
             {
                 if (PendingFrozenChunks.Length == 0) return;
 
-                using (var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp))
+                for (int chunkIndex = 0; chunkIndex < PendingFrozenChunks.Length; chunkIndex++)
                 {
-                    for (int chunkIndex = 0; chunkIndex < PendingFrozenChunks.Length; chunkIndex++)
+                    var chunk = PendingFrozenChunks[chunkIndex];
+                    var parentCount = chunk.Count;
+
+                    var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
+
+                    for (int i = 0; i < parentCount; i++)
                     {
-                        var chunk = PendingFrozenChunks[chunkIndex];
-                        var parentCount = chunk.Count;
+                        var entity = chunkEntities[i];
 
-                        var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
-
-                        for (int i = 0; i < parentCount; i++)
-                        {
-                            var entity = chunkEntities[i];
-
-                            entityCommandBuffer.RemoveComponent<PendingFrozen>(entity);
-                            entityCommandBuffer.AddComponent(entity, default(Frozen));
-                        }
+                        PostUpdateCommands.RemoveComponent<PendingFrozen>(entity);
+                        PostUpdateCommands.AddComponent(entity, default(Frozen));
                     }
-                    entityCommandBuffer.Playback(EntityManager);
                 }
             }
             finally { PendingFrozenChunks.Dispose(); }
@@ -351,24 +347,15 @@ namespace Unity.Transforms
             {
                 if (FrozenChunks.Length == 0) return;
 
-                using (var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp))
+                for (int chunkIndex = 0; chunkIndex < FrozenChunks.Length; chunkIndex++)
                 {
-                    for (int chunkIndex = 0; chunkIndex < FrozenChunks.Length; chunkIndex++)
-                    {
-                        var chunk = FrozenChunks[chunkIndex];
-                        var parentCount = chunk.Count;
+                    var chunk = FrozenChunks[chunkIndex];
+                    var parentCount = chunk.Count;
 
-                        var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
+                    var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
 
-                        for (int i = 0; i < parentCount; i++)
-                        {
-                            var entity = chunkEntities[i];
-
-                            entityCommandBuffer.AddComponent(entity, default(PendingFrozen));
-                        }
-                    }
-
-                    entityCommandBuffer.Playback(EntityManager);
+                    for (int i = 0; i < parentCount; i++)
+                        PostUpdateCommands.AddComponent(chunkEntities[i], default(PendingFrozen));
                 }
             }
             finally { FrozenChunks.Dispose(); }
@@ -378,49 +365,34 @@ namespace Unity.Transforms
         {
             try
             {
-                if (ThawChunks.Length == 0)
-                    return;
+                if (ThawChunks.Length == 0) return;
 
-                using (var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp))
+                for (int chunkIndex = 0; chunkIndex < ThawChunks.Length; chunkIndex++)
                 {
-                    for (int chunkIndex = 0; chunkIndex < ThawChunks.Length; chunkIndex++)
+                    var chunk = ThawChunks[chunkIndex];
+                    var parentCount = chunk.Count;
+
+                    var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
+                    var chunkFrozens = chunk.GetNativeArray(FrozenTypeRO);
+                    var chunkPendingFrozens = chunk.GetNativeArray(PendingFrozenTypeRO);
+                    var hasFrozen = chunkFrozens.Length > 0;
+                    var hasPendingFrozen = chunkPendingFrozens.Length > 0;
+
+                    if (hasFrozen && (!hasPendingFrozen))
+                        for (int i = 0; i < parentCount; i++)
+                            PostUpdateCommands.RemoveComponent<Frozen>(chunkEntities[i]);
+                    else if (hasFrozen && hasPendingFrozen)
                     {
-                        var chunk = ThawChunks[chunkIndex];
-                        var parentCount = chunk.Count;
-
-                        var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
-                        var chunkFrozens = chunk.GetNativeArray(FrozenTypeRO);
-                        var chunkPendingFrozens = chunk.GetNativeArray(PendingFrozenTypeRO);
-                        var hasFrozen = chunkFrozens.Length > 0;
-                        var hasPendingFrozen = chunkPendingFrozens.Length > 0;
-
-                        if (hasFrozen && (!hasPendingFrozen))
+                        for (int i = 0; i < parentCount; i++)
                         {
-                            for (int i = 0; i < parentCount; i++)
-                            {
-                                var entity = chunkEntities[i];
-                                entityCommandBuffer.RemoveComponent<Frozen>(entity);
-                            }
-                        }
-                        else if (hasFrozen && hasPendingFrozen)
-                        {
-                            for (int i = 0; i < parentCount; i++)
-                            {
-                                var entity = chunkEntities[i];
-                                entityCommandBuffer.RemoveComponent<Frozen>(entity);
-                                entityCommandBuffer.RemoveComponent<PendingFrozen>(entity);
-                            }
-                        }
-                        else if ((!hasFrozen) && hasPendingFrozen)
-                        {
-                            for (int i = 0; i < parentCount; i++)
-                            {
-                                var entity = chunkEntities[i];
-                                entityCommandBuffer.RemoveComponent<PendingFrozen>(entity);
-                            }
+                            var entity = chunkEntities[i];
+                            PostUpdateCommands.RemoveComponent<Frozen>(entity);
+                            PostUpdateCommands.RemoveComponent<PendingFrozen>(entity);
                         }
                     }
-                    entityCommandBuffer.Playback(EntityManager);
+                    else if ((!hasFrozen) && hasPendingFrozen)
+                        for (int i = 0; i < parentCount; i++)
+                            PostUpdateCommands.RemoveComponent<PendingFrozen>(chunkEntities[i]);
                 }
             }
             finally { ThawChunks.Dispose(); }
@@ -429,29 +401,21 @@ namespace Unity.Transforms
         private static readonly ProfilerMarker k_ProfileUpdateNewRootTransforms = new ProfilerMarker("UpdateNewRootTransforms");
         private static readonly ProfilerMarker k_ProfileUpdateDAGAttachDetach = new ProfilerMarker("UpdateDAG.AttachDetach");
         private static readonly ProfilerMarker k_ProfileUpdateUpdateRemoved = new ProfilerMarker("UpdateRemoved");
-        private static readonly ProfilerMarker k_ProfileUpdateDAGPlayback = new ProfilerMarker("UpdateDAG.Playback");
         bool UpdateDAG()
         {
             bool changedAttached, changedDetached;
-            using (var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp))
-            {
-                k_ProfileUpdateNewRootTransforms.Begin();
-                UpdateNewRootTransforms(entityCommandBuffer);
-                k_ProfileUpdateNewRootTransforms.End();
+            k_ProfileUpdateNewRootTransforms.Begin();
+            UpdateNewRootTransforms(PostUpdateCommands);
+            k_ProfileUpdateNewRootTransforms.End();
 
-                k_ProfileUpdateDAGAttachDetach.Begin();
-                changedAttached = UpdateAttach(entityCommandBuffer);
-                changedDetached = UpdateDetach(entityCommandBuffer);
-                k_ProfileUpdateDAGAttachDetach.End();
+            k_ProfileUpdateDAGAttachDetach.Begin();
+            changedAttached = UpdateAttach(PostUpdateCommands);
+            changedDetached = UpdateDetach(PostUpdateCommands);
+            k_ProfileUpdateDAGAttachDetach.End();
 
-                k_ProfileUpdateUpdateRemoved.Begin();
-                UpdateRemoved(entityCommandBuffer);
-                k_ProfileUpdateUpdateRemoved.End();
-
-                k_ProfileUpdateDAGPlayback.Begin();
-                entityCommandBuffer.Playback(EntityManager);
-            }
-            k_ProfileUpdateDAGPlayback.End();
+            k_ProfileUpdateUpdateRemoved.Begin();
+            UpdateRemoved(PostUpdateCommands);
+            k_ProfileUpdateUpdateRemoved.End();
 
             return changedAttached || changedDetached;
         }
@@ -931,7 +895,6 @@ namespace Unity.Transforms
             {
                 if (DepthChunks.Length == 0) return;
 
-                var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
                 k_ProfileUpdateDepthChunks.Begin();
                 for (int i = 0; i < DepthChunks.Length; i++)
                 {
@@ -944,15 +907,10 @@ namespace Unity.Transforms
                         var entity = entities[j];
                         var parentEntity = parents[j].Value;
                         var parentCount = 1 + ParentCount(parentEntity);
-                        entityCommandBuffer.SetSharedComponent(entity, new Depth { Value = parentCount });
+                        PostUpdateCommands.SetSharedComponent(entity, new Depth { Value = parentCount });
                     }
                 }
                 k_ProfileUpdateDepthChunks.End();
-
-                k_ProfileUpdateDepthPlayback.Begin();
-                entityCommandBuffer.Playback(EntityManager);
-                entityCommandBuffer.Dispose();
-                k_ProfileUpdateDepthPlayback.End();
             }
             finally
             {
