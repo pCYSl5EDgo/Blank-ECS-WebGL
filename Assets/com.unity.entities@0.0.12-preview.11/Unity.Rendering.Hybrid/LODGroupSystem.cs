@@ -38,6 +38,7 @@ namespace Unity.Rendering
                     ref var lodGroup = ref UnsafeUtilityEx.ArrayElementAsRef<MeshLODGroupComponent>(chunkLODGroup.GetUnsafeReadOnlyPtr(), i);
                     activeMask.LODMask = LODGroupExtensions.CalculateCurrentLODMask(lodGroup.LODDistances, lodGroup.WorldReferencePoint, ref LODParams);
                 }
+                consumed += chunkLODGroup.Length;
             }
             for (int consumed = 0; consumed != length;)
             {
@@ -58,6 +59,7 @@ namespace Unity.Rendering
                     }
                     activeMask.LODMask = LODGroupExtensions.CalculateCurrentLODMask(lodGroup.LODDistances, lodGroup.WorldReferencePoint, ref LODParams);
                 }
+                consumed += chunkLODGroup.Length;
             }
         }
     }
