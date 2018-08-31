@@ -53,9 +53,10 @@ namespace Unity.Transforms
     /// Updated by system.
     /// Read-only from external systems.
     /// </summary>
-    public struct LocalToWorld : ISystemStateComponentData
+    public readonly struct LocalToWorld : ISystemStateComponentData
     {
-        public float4x4 Value;
+        public LocalToWorld(float4x4 value) => Value = value;
+        public readonly float4x4 Value;
     }
 
     /// <summary>
@@ -63,9 +64,10 @@ namespace Unity.Transforms
     /// Updated by system from Rotation +/- Position +/- Scale.
     /// Read-only from external systems.
     /// </summary>
-    public struct LocalToParent : ISystemStateComponentData
+    public readonly struct LocalToParent : ISystemStateComponentData
     {
-        public float4x4 Value;
+        public LocalToParent(float4x4 value) => Value = value;
+        public readonly float4x4 Value;
     }
 
     /// <summary>
@@ -183,7 +185,7 @@ namespace Unity.Transforms
                     var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
 
                     for (int i = 0; i < parentCount; i++)
-                        PostUpdateCommands.AddComponent(chunkEntities[i], new LocalToWorld { Value = float4x4.identity });
+                        PostUpdateCommands.AddComponent(chunkEntities[i], new LocalToWorld(float4x4.identity));
                 }
             }
             finally { NewRootChunks.Dispose(); }
@@ -226,7 +228,7 @@ namespace Unity.Transforms
                         {
                             PostUpdateCommands.AddComponent(childEntity, new Parent(parentEntity));
                             PostUpdateCommands.AddComponent(childEntity, new Attached());
-                            PostUpdateCommands.AddComponent(childEntity, new LocalToParent { Value = float4x4.identity });
+                            PostUpdateCommands.AddComponent(childEntity, new LocalToParent(float4x4.identity));
                         }
 
                         // parent wasn't previously a tree, so doesn't have depth
@@ -431,91 +433,35 @@ namespace Unity.Transforms
 
                     // 001
                     if ((!chunkPositionsExist) && (!chunkRotationsExist) && (chunkScalesExist))
-                    {
                         for (int i = 0; i < parentCount; i++)
-                        {
-                            chunkLocalToWorlds[i] = new LocalToWorld
-                            {
-                                Value = math.mul(float4x4.translate(chunkPositions[i].Value),
-                                    float4x4.scale(chunkScales[i].Value))
-                            };
-                        }
-                    }
+                            chunkLocalToWorlds[i] = new LocalToWorld(math.mul(float4x4.translate(chunkPositions[i].Value), float4x4.scale(chunkScales[i].Value)));
                     // 010
                     else if ((!chunkPositionsExist) && (chunkRotationsExist) && (!chunkScalesExist))
-                    {
                         for (int i = 0; i < parentCount; i++)
-                        {
-                            chunkLocalToWorlds[i] = new LocalToWorld
-                            {
-                                Value = new float4x4(chunkRotations[i].Value, new float3())
-                            };
-                        }
-                    }
+                            chunkLocalToWorlds[i] = new LocalToWorld(new float4x4(chunkRotations[i].Value, new float3()));
                     // 011
                     else if ((!chunkPositionsExist) && (chunkRotationsExist) && (chunkScalesExist))
-                    {
                         for (int i = 0; i < parentCount; i++)
-                        {
-                            chunkLocalToWorlds[i] = new LocalToWorld
-                            {
-                                Value = math.mul(new float4x4(chunkRotations[i].Value, new float3()),
-                                    float4x4.scale(chunkScales[i].Value))
-                            };
-                        }
-                    }
+                            chunkLocalToWorlds[i] = new LocalToWorld(math.mul(new float4x4(chunkRotations[i].Value, new float3()), float4x4.scale(chunkScales[i].Value)));
                     // 100
                     else if ((chunkPositionsExist) && (!chunkRotationsExist) && (!chunkScalesExist))
-                    {
                         for (int i = 0; i < parentCount; i++)
-                        {
-                            chunkLocalToWorlds[i] = new LocalToWorld
-                            {
-                                Value = float4x4.translate(chunkPositions[i].Value)
-                            };
-                        }
-                    }
+                            chunkLocalToWorlds[i] = new LocalToWorld(float4x4.translate(chunkPositions[i].Value));
                     // 101
                     else if ((chunkPositionsExist) && (!chunkRotationsExist) && (chunkScalesExist))
-                    {
                         for (int i = 0; i < parentCount; i++)
-                        {
-                            chunkLocalToWorlds[i] = new LocalToWorld
-                            {
-                                Value = math.mul(float4x4.translate(chunkPositions[i].Value),
-                                    float4x4.scale(chunkScales[i].Value))
-                            };
-                        }
-                    }
+                            chunkLocalToWorlds[i] = new LocalToWorld(math.mul(float4x4.translate(chunkPositions[i].Value), float4x4.scale(chunkScales[i].Value)));
                     // 110
                     else if ((chunkPositionsExist) && (chunkRotationsExist) && (!chunkScalesExist))
-                    {
                         for (int i = 0; i < parentCount; i++)
-                        {
-                            chunkLocalToWorlds[i] = new LocalToWorld
-                            {
-                                Value = new float4x4(chunkRotations[i].Value, chunkPositions[i].Value)
-                            };
-                        }
-                    }
+                            chunkLocalToWorlds[i] = new LocalToWorld(new float4x4(chunkRotations[i].Value, chunkPositions[i].Value));
                     // 111
                     else if ((chunkPositionsExist) && (chunkRotationsExist) && (chunkScalesExist))
-                    {
                         for (int i = 0; i < parentCount; i++)
-                        {
-                            chunkLocalToWorlds[i] = new LocalToWorld
-                            {
-                                Value = math.mul(new float4x4(chunkRotations[i].Value, chunkPositions[i].Value),
-                                    float4x4.scale(chunkScales[i].Value))
-                            };
-                        }
-                    }
+                            chunkLocalToWorlds[i] = new LocalToWorld(math.mul(new float4x4(chunkRotations[i].Value, chunkPositions[i].Value), float4x4.scale(chunkScales[i].Value)));
                 }
             }
-            finally
-            {
-                RootLocalToWorldChunks.Dispose();
-            }
+            finally { RootLocalToWorldChunks.Dispose(); }
         }
 
         unsafe void UpdateInnerTreeLocalToParent()
@@ -524,7 +470,7 @@ namespace Unity.Transforms
             {
                 for (int chunkIndex = 0, length = InnerTreeLocalToParentChunks.Length; chunkIndex < length; chunkIndex++)
                 {
-                    var chunk = InnerTreeLocalToParentChunks[chunkIndex];
+                    ref var chunk = ref UnsafeUtilityEx.ArrayElementAsRef<ArchetypeChunk>(InnerTreeLocalToParentChunks.GetUnsafePtr(), chunkIndex);
                     var parentCount = chunk.Count;
 
                     var chunkRotations = chunk.GetNativeArray(RotationTypeRO);
@@ -546,91 +492,35 @@ namespace Unity.Transforms
 
                     // 001
                     if ((!chunkPositionsExist) && (!chunkRotationsExist) && (chunkScalesExist))
-                    {
                         for (int i = 0; i < parentCount; i++)
-                        {
-                            chunkLocalToParents[i] = new LocalToParent
-                            {
-                                Value = math.mul(float4x4.translate(chunkPositions[i].Value),
-                                    float4x4.scale(chunkScales[i].Value))
-                            };
-                        }
-                    }
+                            chunkLocalToParents[i] = new LocalToParent(math.mul(float4x4.translate(chunkPositions[i].Value), float4x4.scale(chunkScales[i].Value)));
                     // 010
                     else if ((!chunkPositionsExist) && (chunkRotationsExist) && (!chunkScalesExist))
-                    {
                         for (int i = 0; i < parentCount; i++)
-                        {
-                            chunkLocalToParents[i] = new LocalToParent
-                            {
-                                Value = new float4x4(chunkRotations[i].Value, new float3())
-                            };
-                        }
-                    }
+                            chunkLocalToParents[i] = new LocalToParent(new float4x4(chunkRotations[i].Value, new float3()));
                     // 011
                     else if ((!chunkPositionsExist) && (chunkRotationsExist) && (chunkScalesExist))
-                    {
                         for (int i = 0; i < parentCount; i++)
-                        {
-                            chunkLocalToParents[i] = new LocalToParent
-                            {
-                                Value = math.mul(new float4x4(chunkRotations[i].Value, new float3()),
-                                    float4x4.scale(chunkScales[i].Value))
-                            };
-                        }
-                    }
+                            chunkLocalToParents[i] = new LocalToParent(math.mul(new float4x4(chunkRotations[i].Value, new float3()), float4x4.scale(chunkScales[i].Value)));
                     // 100
                     else if ((chunkPositionsExist) && (!chunkRotationsExist) && (!chunkScalesExist))
-                    {
                         for (int i = 0; i < parentCount; i++)
-                        {
-                            chunkLocalToParents[i] = new LocalToParent
-                            {
-                                Value = float4x4.translate(chunkPositions[i].Value)
-                            };
-                        }
-                    }
+                            chunkLocalToParents[i] = new LocalToParent(float4x4.translate(chunkPositions[i].Value));
                     // 101
                     else if ((chunkPositionsExist) && (!chunkRotationsExist) && (chunkScalesExist))
-                    {
                         for (int i = 0; i < parentCount; i++)
-                        {
-                            chunkLocalToParents[i] = new LocalToParent
-                            {
-                                Value = math.mul(float4x4.translate(chunkPositions[i].Value),
-                                    float4x4.scale(chunkScales[i].Value))
-                            };
-                        }
-                    }
+                            chunkLocalToParents[i] = new LocalToParent(math.mul(float4x4.translate(chunkPositions[i].Value), float4x4.scale(chunkScales[i].Value)));
                     // 110
                     else if ((chunkPositionsExist) && (chunkRotationsExist) && (!chunkScalesExist))
-                    {
                         for (int i = 0; i < parentCount; i++)
-                        {
-                            chunkLocalToParents[i] = new LocalToParent
-                            {
-                                Value = new float4x4(chunkRotations[i].Value, chunkPositions[i].Value)
-                            };
-                        }
-                    }
+                            chunkLocalToParents[i] = new LocalToParent(new float4x4(chunkRotations[i].Value, chunkPositions[i].Value));
                     // 111
                     else if ((chunkPositionsExist) && (chunkRotationsExist) && (chunkScalesExist))
-                    {
                         for (int i = 0; i < parentCount; i++)
-                        {
-                            chunkLocalToParents[i] = new LocalToParent
-                            {
-                                Value = math.mul(new float4x4(chunkRotations[i].Value, chunkPositions[i].Value),
-                                    float4x4.scale(chunkScales[i].Value))
-                            };
-                        }
-                    }
+                            chunkLocalToParents[i] = new LocalToParent(math.mul(new float4x4(chunkRotations[i].Value, chunkPositions[i].Value), float4x4.scale(chunkScales[i].Value)));
                 }
             }
-            finally
-            {
-                InnerTreeLocalToParentChunks.Dispose();
-            }
+            finally { InnerTreeLocalToParentChunks.Dispose(); }
         }
 
         unsafe void UpdateLeafLocalToParent()
@@ -661,91 +551,35 @@ namespace Unity.Transforms
 
                     // 001
                     if ((!chunkPositionsExist) && (!chunkRotationsExist) && (chunkScalesExist))
-                    {
                         for (int i = 0; i < parentCount; i++)
-                        {
-                            chunkLocalToParents[i] = new LocalToParent
-                            {
-                                Value = math.mul(float4x4.translate(chunkPositions[i].Value),
-                                    float4x4.scale(chunkScales[i].Value))
-                            };
-                        }
-                    }
+                            chunkLocalToParents[i] = new LocalToParent(math.mul(float4x4.translate(chunkPositions[i].Value), float4x4.scale(chunkScales[i].Value)));
                     // 010
                     else if ((!chunkPositionsExist) && (chunkRotationsExist) && (!chunkScalesExist))
-                    {
                         for (int i = 0; i < parentCount; i++)
-                        {
-                            chunkLocalToParents[i] = new LocalToParent
-                            {
-                                Value = new float4x4(chunkRotations[i].Value, new float3())
-                            };
-                        }
-                    }
+                            chunkLocalToParents[i] = new LocalToParent(new float4x4(chunkRotations[i].Value, new float3()));
                     // 011
                     else if ((!chunkPositionsExist) && (chunkRotationsExist) && (chunkScalesExist))
-                    {
                         for (int i = 0; i < parentCount; i++)
-                        {
-                            chunkLocalToParents[i] = new LocalToParent
-                            {
-                                Value = math.mul(new float4x4(chunkRotations[i].Value, new float3()),
-                                    float4x4.scale(chunkScales[i].Value))
-                            };
-                        }
-                    }
+                            chunkLocalToParents[i] = new LocalToParent(math.mul(new float4x4(chunkRotations[i].Value, new float3()), float4x4.scale(chunkScales[i].Value)));
                     // 100
                     else if ((chunkPositionsExist) && (!chunkRotationsExist) && (!chunkScalesExist))
-                    {
                         for (int i = 0; i < parentCount; i++)
-                        {
-                            chunkLocalToParents[i] = new LocalToParent
-                            {
-                                Value = float4x4.translate(chunkPositions[i].Value)
-                            };
-                        }
-                    }
+                            chunkLocalToParents[i] = new LocalToParent(float4x4.translate(chunkPositions[i].Value));
                     // 101
                     else if ((chunkPositionsExist) && (!chunkRotationsExist) && (chunkScalesExist))
-                    {
                         for (int i = 0; i < parentCount; i++)
-                        {
-                            chunkLocalToParents[i] = new LocalToParent
-                            {
-                                Value = math.mul(float4x4.translate(chunkPositions[i].Value),
-                                    float4x4.scale(chunkScales[i].Value))
-                            };
-                        }
-                    }
+                            chunkLocalToParents[i] = new LocalToParent(math.mul(float4x4.translate(chunkPositions[i].Value), float4x4.scale(chunkScales[i].Value)));
                     // 110
                     else if ((chunkPositionsExist) && (chunkRotationsExist) && (!chunkScalesExist))
-                    {
                         for (int i = 0; i < parentCount; i++)
-                        {
-                            chunkLocalToParents[i] = new LocalToParent
-                            {
-                                Value = new float4x4(chunkRotations[i].Value, chunkPositions[i].Value)
-                            };
-                        }
-                    }
+                            chunkLocalToParents[i] = new LocalToParent(new float4x4(chunkRotations[i].Value, chunkPositions[i].Value));
                     // 111
                     else if ((chunkPositionsExist) && (chunkRotationsExist) && (chunkScalesExist))
-                    {
                         for (int i = 0; i < parentCount; i++)
-                        {
-                            chunkLocalToParents[i] = new LocalToParent
-                            {
-                                Value = math.mul(new float4x4(chunkRotations[i].Value, chunkPositions[i].Value),
-                                    float4x4.scale(chunkScales[i].Value))
-                            };
-                        }
-                    }
+                            chunkLocalToParents[i] = new LocalToParent(math.mul(new float4x4(chunkRotations[i].Value, chunkPositions[i].Value), float4x4.scale(chunkScales[i].Value)));
                 }
             }
-            finally
-            {
-                LeafLocalToParentChunks.Dispose();
-            }
+            finally { LeafLocalToParentChunks.Dispose(); }
         }
 
         unsafe void UpdateInnerTreeLocalToWorld()
@@ -818,10 +652,7 @@ namespace Unity.Transforms
                             previousParentEntity = parentEntity;
                         }
                         var entity = chunkEntities[j];
-                        LocalToWorldFromEntityRW[entity] = new LocalToWorld
-                        {
-                            Value = math.mul(parentLocalToWorldMatrix, chunkLocalToParents[j].Value)
-                        };
+                        LocalToWorldFromEntityRW[entity] = new LocalToWorld(math.mul(parentLocalToWorldMatrix, chunkLocalToParents[j].Value));
                     }
                 }
                 chunkIndices.Dispose();
@@ -853,11 +684,7 @@ namespace Unity.Transforms
                             previousParentEntity = parentEntity;
                         }
 
-                        var entity = chunkEntities[j];
-                        LocalToWorldFromEntityRW[entity] = new LocalToWorld
-                        {
-                            Value = math.mul(parentLocalToWorldMatrix, chunkLocalToParents[j].Value)
-                        };
+                        LocalToWorldFromEntityRW[chunkEntities[j]] = new LocalToWorld(math.mul(parentLocalToWorldMatrix, chunkLocalToParents[j].Value));
                     }
                 }
             }
@@ -871,7 +698,7 @@ namespace Unity.Transforms
 
         private static readonly ProfilerMarker k_ProfileUpdateDepthChunks = new ProfilerMarker("UpdateDepth.Chunks");
 
-        void UpdateDepth()
+        unsafe void UpdateDepth()
         {
             try
             {
@@ -880,16 +707,11 @@ namespace Unity.Transforms
                 k_ProfileUpdateDepthChunks.Begin();
                 for (int i = 0; i < DepthChunks.Length; i++)
                 {
-                    var chunk = DepthChunks[i];
+                    ref var chunk = ref UnsafeUtilityEx.ArrayElementAsRef<ArchetypeChunk>(DepthChunks.GetUnsafePtr(), i);
                     var parents = chunk.GetNativeArray(ParentTypeRO);
                     var entities = chunk.GetNativeArray(EntityTypeRO);
                     for (int j = 0, entityCount = chunk.Count; j < entityCount; j++)
-                    {
-                        var entity = entities[j];
-                        var parentEntity = parents[j].Value;
-                        var parentCount = 1 + ParentCount(parentEntity);
-                        PostUpdateCommands.SetSharedComponent(entity, new Depth(parentCount));
-                    }
+                        PostUpdateCommands.SetSharedComponent(entities[j], new Depth(1 + ParentCount(parents[j].Value)));
                 }
                 k_ProfileUpdateDepthChunks.End();
             }
