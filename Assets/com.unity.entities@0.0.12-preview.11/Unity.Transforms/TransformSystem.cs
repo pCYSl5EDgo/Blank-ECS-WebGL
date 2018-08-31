@@ -53,10 +53,10 @@ namespace Unity.Transforms
     /// Updated by system.
     /// Read-only from external systems.
     /// </summary>
-    public readonly struct LocalToWorld : ISystemStateComponentData
+    public struct LocalToWorld : ISystemStateComponentData
     {
         public LocalToWorld(float4x4 value) => Value = value;
-        public readonly float4x4 Value;
+        public float4x4 Value;
     }
 
     /// <summary>
@@ -431,34 +431,128 @@ namespace Unity.Transforms
                     var chunkPositionsExist = chunkPositions.Length > 0;
                     var chunkScalesExist = chunkScales.Length > 0;
 
+                    var chunkLocalToWorldsPtr = (LocalToWorld*)chunkLocalToWorlds.GetUnsafePtr();
+                    var chunkPositionsPtr = (float3*)chunkPositions.GetUnsafeReadOnlyPtr();
+                    var chunkScalesPtr = (float3*)chunkScales.GetUnsafeReadOnlyPtr();
+                    var chunkRotationsPtr = (quaternion*)chunkRotations.GetUnsafeReadOnlyPtr();
                     // 001
                     if ((!chunkPositionsExist) && (!chunkRotationsExist) && (chunkScalesExist))
                         for (int i = 0; i < parentCount; i++)
-                            chunkLocalToWorlds[i] = new LocalToWorld(math.mul(float4x4.translate(chunkPositions[i].Value), float4x4.scale(chunkScales[i].Value)));
+                        {
+                            ref var matrix = ref chunkLocalToWorldsPtr[i].Value;
+                            ref var scale = ref chunkScalesPtr[i];
+                            matrix.c0.x = scale.x; matrix.c0.y = matrix.c0.z = matrix.c0.w =
+                            matrix.c1.x = 0; matrix.c1.y = scale.y; matrix.c1.z = matrix.c1.w =
+                            matrix.c2.x = matrix.c2.y = 0; matrix.c2.z = scale.z; matrix.c2.w =
+                            matrix.c3.x = matrix.c3.y = matrix.c3.z = 0; matrix.c3.w = 1;
+                        }
                     // 010
                     else if ((!chunkPositionsExist) && (chunkRotationsExist) && (!chunkScalesExist))
                         for (int i = 0; i < parentCount; i++)
-                            chunkLocalToWorlds[i] = new LocalToWorld(new float4x4(chunkRotations[i].Value, new float3()));
+                        {
+                            ref var quaternion = ref chunkRotationsPtr[i].value;
+                            ref var matrix = ref chunkLocalToWorldsPtr[i].Value;
+                            var rotation = math.normalize(quaternion);
+                            var x = rotation.x * 2f;
+                            var y = rotation.y * 2f;
+                            var z = rotation.z * 2f;
+                            var xx = rotation.x * x;
+                            var yy = rotation.y * y;
+                            var zz = rotation.z * z;
+                            var xy = rotation.x * y;
+                            var xz = rotation.x * z;
+                            var yz = rotation.y * z;
+                            var wx = rotation.w * x;
+                            var wy = rotation.w * y;
+                            var wz = rotation.w * z;
+                            matrix.c0.x = 1f - (yy + zz);
+                            matrix.c0.y = xy + wz;
+                            matrix.c0.z = xz - wy;
+                            matrix.c0.w = 0;
+                            matrix.c1.x = xy - wz;
+                            matrix.c1.y = 1 - (xx + zz);
+                            matrix.c1.z = yz + wx;
+                            matrix.c1.w = 0;
+                            matrix.c2.x = xz + wy;
+                            matrix.c2.y = yz - wz;
+                            matrix.c2.z = 1f - (xx + yy);
+                            matrix.c2.w = 0;
+                            matrix.c3.x = matrix.c3.y = matrix.c3.z = 0; matrix.c3.w = 1; //  = new float4x4(chunkRotations[i].Value, new float3());
+                        }
                     // 011
                     else if ((!chunkPositionsExist) && (chunkRotationsExist) && (chunkScalesExist))
                         for (int i = 0; i < parentCount; i++)
-                            chunkLocalToWorlds[i] = new LocalToWorld(math.mul(new float4x4(chunkRotations[i].Value, new float3()), float4x4.scale(chunkScales[i].Value)));
+                        {
+                            ref var scale = ref chunkScalesPtr[i];
+                            chunkLocalToWorldsPtr[i].Value = math.mul(new float4x4(chunkRotations[i].Value, default(float3)), new float4x4(new float4(scale.x, 0, 0, 0), new float4(0, scale.y, 0, 0), new float4(0, 0, scale.z, 0), new float4(0, 0, 0, 1)));
+                        }
                     // 100
                     else if ((chunkPositionsExist) && (!chunkRotationsExist) && (!chunkScalesExist))
                         for (int i = 0; i < parentCount; i++)
-                            chunkLocalToWorlds[i] = new LocalToWorld(float4x4.translate(chunkPositions[i].Value));
+                        {
+                            ref var position = ref chunkPositionsPtr[i];
+                            ref var matrix = ref chunkLocalToWorldsPtr[i].Value; // = float4x4.translate(chunkPositions[i].Value);
+                            matrix.c0.x = 1;
+                            matrix.c0.y = matrix.c0.z = matrix.c0.w = matrix.c1.x = 0;
+                            matrix.c1.y = 1;
+                            matrix.c1.z = matrix.c1.w = matrix.c2.x = matrix.c2.y = 0;
+                            matrix.c2.z = 1;
+                            matrix.c2.w = 0;
+                            matrix.c3.x = position.x;
+                            matrix.c3.y = position.y;
+                            matrix.c3.z = position.z;
+                            matrix.c3.w = 1;
+                        }
                     // 101
                     else if ((chunkPositionsExist) && (!chunkRotationsExist) && (chunkScalesExist))
                         for (int i = 0; i < parentCount; i++)
-                            chunkLocalToWorlds[i] = new LocalToWorld(math.mul(float4x4.translate(chunkPositions[i].Value), float4x4.scale(chunkScales[i].Value)));
+                        {
+                            ref var position = ref chunkPositionsPtr[i];
+                            ref var scale = ref chunkScalesPtr[i];
+                            ref var matrix = ref chunkLocalToWorldsPtr[i].Value;
+                            matrix.c0.x = scale.x; matrix.c0.y = matrix.c0.z = matrix.c0.w =
+                            matrix.c1.x = 0; matrix.c1.y = scale.y; matrix.c1.z = matrix.c1.w =
+                            matrix.c2.x = matrix.c2.y = 0; matrix.c2.z = scale.z; matrix.c2.w = 0;
+                            matrix.c3.x = position.x; matrix.c3.y = position.y; matrix.c3.z = position.z; matrix.c3.w = 1;
+                        }
                     // 110
                     else if ((chunkPositionsExist) && (chunkRotationsExist) && (!chunkScalesExist))
                         for (int i = 0; i < parentCount; i++)
-                            chunkLocalToWorlds[i] = new LocalToWorld(new float4x4(chunkRotations[i].Value, chunkPositions[i].Value));
+                        {
+                            ref var quaternion = ref chunkRotationsPtr[i].value;
+                            ref var position = ref chunkPositionsPtr[i];
+                            ref var matrix = ref chunkLocalToWorldsPtr[i].Value;
+                            var rotation = math.normalize(quaternion);
+                            var x = rotation.x * 2f;
+                            var y = rotation.y * 2f;
+                            var z = rotation.z * 2f;
+                            var xx = rotation.x * x;
+                            var yy = rotation.y * y;
+                            var zz = rotation.z * z;
+                            var xy = rotation.x * y;
+                            var xz = rotation.x * z;
+                            var yz = rotation.y * z;
+                            var wx = rotation.w * x;
+                            var wy = rotation.w * y;
+                            var wz = rotation.w * z;
+                            matrix.c0.x = 1f - (yy + zz);
+                            matrix.c0.y = xy + wz;
+                            matrix.c0.z = xz - wy;
+                            matrix.c0.w = 0;
+                            matrix.c1.x = xy - wz;
+                            matrix.c1.y = 1 - (xx + zz);
+                            matrix.c1.z = yz + wx;
+                            matrix.c1.w = 0;
+                            matrix.c2.x = xz + wy;
+                            matrix.c2.y = yz - wz;
+                            matrix.c2.z = 1f - (xx + yy);
+                            matrix.c2.w = 0;
+                            matrix.c3.x = position.x; matrix.c3.y = position.y; matrix.c3.z = position.z; matrix.c3.w = 1;
+                        }
                     // 111
                     else if ((chunkPositionsExist) && (chunkRotationsExist) && (chunkScalesExist))
                         for (int i = 0; i < parentCount; i++)
-                            chunkLocalToWorlds[i] = new LocalToWorld(math.mul(new float4x4(chunkRotations[i].Value, chunkPositions[i].Value), float4x4.scale(chunkScales[i].Value)));
+                            chunkLocalToWorldsPtr[i].Value = math.mul(new float4x4(chunkRotations[i].Value, chunkPositions[i].Value), float4x4.scale(chunkScales[i].Value));
                 }
             }
             finally { RootLocalToWorldChunks.Dispose(); }

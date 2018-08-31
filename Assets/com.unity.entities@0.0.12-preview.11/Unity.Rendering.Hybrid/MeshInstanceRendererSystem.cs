@@ -122,26 +122,22 @@ namespace Unity.Rendering
             {
                 Any = Array.Empty<ComponentType>(),
                 None = Array.Empty<ComponentType>(),
-                All = new ComponentType[] { typeof(CustomLocalToWorld), typeof(MeshInstanceRenderer), typeof(VisibleLocalToWorld) }
+                All = new ComponentType[] { ComponentType.Create<CustomLocalToWorld>(), ComponentType.Create<MeshInstanceRenderer>(), ComponentType.Create<VisibleLocalToWorld>() }
             };
             m_LocalToWorldQuery = new EntityArchetypeQuery
             {
                 Any = Array.Empty<ComponentType>(),
                 None = Array.Empty<ComponentType>(),
-                All = new ComponentType[] { typeof(LocalToWorld), typeof(MeshInstanceRenderer), typeof(VisibleLocalToWorld) }
+                All = new ComponentType[] { ComponentType.Create<LocalToWorld>(), ComponentType.Create<MeshInstanceRenderer>(), ComponentType.Create<VisibleLocalToWorld>() }
             };
         }
 
         protected override void OnDestroyManager()
         {
             if (m_Chunks.IsCreated)
-            {
                 m_Chunks.Dispose();
-            }
             if (m_ChunkBounds.IsCreated)
-            {
                 m_ChunkBounds.Dispose();
-            }
         }
 
         unsafe void UpdateInstanceRenderer()
