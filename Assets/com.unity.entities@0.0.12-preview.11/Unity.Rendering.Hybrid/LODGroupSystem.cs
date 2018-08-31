@@ -1,8 +1,5 @@
-﻿using Unity.Burst;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
+﻿using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
-using Unity.Jobs;
 using UnityEngine;
 
 namespace Unity.Rendering
@@ -12,13 +9,10 @@ namespace Unity.Rendering
         public Camera ActiveCamera;
         ComponentGroup g;
 
-        public LODGroupSystem() : this(null) { }
+        public LODGroupSystem() { }
         public LODGroupSystem(Camera activeCamera) => ActiveCamera = activeCamera;
 
-        protected override void OnCreateManager(int capacity)
-        {
-            g = GetComponentGroup(ComponentType.ReadOnly<MeshLODGroupComponent>(), ComponentType.Create<ActiveLODGroupMask>());
-        }
+        protected override void OnCreateManager(int capacity) => g = GetComponentGroup(ComponentType.ReadOnly<MeshLODGroupComponent>(), ComponentType.Create<ActiveLODGroupMask>());
 
         protected override unsafe void OnUpdate()
         {
