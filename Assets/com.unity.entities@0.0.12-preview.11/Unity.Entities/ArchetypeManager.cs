@@ -911,6 +911,7 @@ namespace Unity.Entities
                     chunk->SharedComponentValueArray[k] = componentIndex;
                 }
             }
+            remapChunks.Dispose();
 
             for (int j = 0; j < archetypeIndex; j++)
             {
